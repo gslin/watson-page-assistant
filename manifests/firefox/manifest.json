@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Watson Page Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered page analysis using OpenAI API",
+  "permissions": ["activeTab", "storage"],
+  "background": {
+    "scripts": ["background/service-worker.js"]
+  },
+  "sidebar_action": {
+    "default_panel": "sidebar/sidebar.html",
+    "default_title": "Watson Page Assistant",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "open_at_install": false
+  },
+  "commands": {
+    "_execute_sidebar_action": {
+      "suggested_key": {
+        "default": "Ctrl+Y"
+      }
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["common/readability.min.js", "content/content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "watson-page-assistant@example.com"
+    }
+  }
+}
