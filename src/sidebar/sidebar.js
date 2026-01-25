@@ -428,6 +428,12 @@ function clearChat() {
   chatContainer.innerHTML = '';
   welcomeMessage.hidden = false;
   chatContainer.appendChild(welcomeMessage);
+
+  // Restore default prompt
+  if (settings.defaultPrompt) {
+    userInput.value = settings.defaultPrompt;
+  }
+
   updateSendButtonState();
 }
 
