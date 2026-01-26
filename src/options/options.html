@@ -11,69 +11,77 @@
     <h1>Watson Page Assistant Settings</h1>
 
     <form id="settings-form">
-      <div class="form-group">
-        <label for="endpoint">API Endpoint</label>
-        <input
-          type="url"
-          id="endpoint"
-          name="endpoint"
-          placeholder="https://api.openai.com/v1/chat/completions"
-          required
-        >
-        <small>OpenAI-compatible API endpoint URL</small>
-      </div>
+      <section class="settings-section">
+        <h2>Appearance</h2>
 
-      <div class="form-group">
-        <label for="apiKey">API Key</label>
-        <input
-          type="password"
-          id="apiKey"
-          name="apiKey"
-          placeholder="sk-..."
-          required
-        >
-        <small>Your OpenAI API key (stored locally)</small>
-      </div>
-
-      <div class="form-group">
-        <label for="model">Model</label>
-        <div class="model-select-wrapper">
-          <select id="model" name="model">
-            <option value="">-- Please load model list first --</option>
+        <div class="form-group">
+          <label for="theme">Theme</label>
+          <select id="theme" name="theme">
+            <option value="system">System (Auto)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
           </select>
-          <button type="button" id="load-models-btn" class="btn-icon" title="Load model list">↻</button>
+          <small>Choose color theme for the interface</small>
         </div>
-        <small id="model-status">Select the AI model to use</small>
-      </div>
+      </section>
 
-      <div class="form-group">
-        <label for="theme">Theme</label>
-        <select id="theme" name="theme">
-          <option value="system">System (Auto)</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-        <small>Choose color theme for the interface</small>
-      </div>
+      <section class="settings-section">
+        <h2>LLM</h2>
 
-      <div class="form-group">
-        <label for="defaultPrompt">Default Message</label>
-        <textarea
-          id="defaultPrompt"
-          name="defaultPrompt"
-          rows="4"
-          placeholder="You are a helpful assistant..."
-        ></textarea>
-        <small>Default message to fill in the input field when sidebar opens</small>
-      </div>
+        <div class="form-group">
+          <label for="endpoint">API Endpoint</label>
+          <input
+            type="url"
+            id="endpoint"
+            name="endpoint"
+            placeholder="https://api.openai.com/v1/chat/completions"
+            required
+          >
+          <small>OpenAI-compatible API endpoint URL</small>
+        </div>
 
-      <div class="form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="autoSubmitPrompt" name="autoSubmitPrompt">
-          Auto-submit prompt when sidebar opens
-        </label>
-        <small>Automatically send the default message when the sidebar is opened</small>
-      </div>
+        <div class="form-group">
+          <label for="apiKey">API Key</label>
+          <input
+            type="password"
+            id="apiKey"
+            name="apiKey"
+            placeholder="sk-..."
+            required
+          >
+          <small>Your OpenAI API key (stored locally)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="model">Model</label>
+          <div class="model-select-wrapper">
+            <select id="model" name="model">
+              <option value="">-- Please load model list first --</option>
+            </select>
+            <button type="button" id="load-models-btn" class="btn-icon" title="Load model list">↻</button>
+          </div>
+          <small id="model-status">Select the AI model to use</small>
+        </div>
+
+        <div class="form-group">
+          <label for="defaultPrompt">Default Message</label>
+          <textarea
+            id="defaultPrompt"
+            name="defaultPrompt"
+            rows="4"
+            placeholder="You are a helpful assistant..."
+          ></textarea>
+          <small>Default message to fill in the input field when sidebar opens</small>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoSubmitPrompt" name="autoSubmitPrompt">
+            Auto-submit prompt when sidebar opens
+          </label>
+          <small>Automatically send the default message when the sidebar is opened</small>
+        </div>
+      </section>
 
       <div class="button-group">
         <button type="submit" class="btn-primary">Save Settings</button>
