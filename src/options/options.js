@@ -9,7 +9,8 @@ const defaultSettings = {
   apiKey: '',
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4.1-nano',
-  theme: 'system'
+  theme: 'system',
+  autoSubmitPrompt: true
 };
 
 const form = document.getElementById('settings-form');
@@ -198,6 +199,7 @@ async function loadSettings() {
     document.getElementById('endpoint').value = settings.endpoint;
     document.getElementById('apiKey').value = settings.apiKey;
     document.getElementById('defaultPrompt').value = settings.defaultPrompt;
+    document.getElementById('autoSubmitPrompt').checked = settings.autoSubmitPrompt;
     themeSelect.value = settings.theme;
     applyTheme(settings.theme);
 
@@ -225,7 +227,8 @@ async function saveSettings(e) {
     apiKey: document.getElementById('apiKey').value.trim(),
     model: document.getElementById('model').value,
     defaultPrompt: document.getElementById('defaultPrompt').value.trim(),
-    theme: themeSelect.value
+    theme: themeSelect.value,
+    autoSubmitPrompt: document.getElementById('autoSubmitPrompt').checked
   };
 
   try {

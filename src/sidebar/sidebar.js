@@ -30,8 +30,12 @@ const defaultSettings = {
   apiKey: '',
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4.1-nano',
-  theme: 'system'
+  theme: 'system',
+  autoSubmitPrompt: true
 };
+
+// Flag to track initial load for auto-submit
+let isInitialLoad = true;
 
 /**
  * Detect if Firefox theme is dark
@@ -257,6 +261,12 @@ async function extractContent() {
 
     // Enable send button
     updateSendButtonState();
+
+    // Auto-submit prompt if enabled and conditions are met
+    if (isInitialLoad && settings.autoSubmitPrompt && settings.defaultPrompt && settings.apiKey) {
+      isInitialLoad = false;
+      sendMessage();
+    }
 
   } catch (error) {
     console.error('Extract error:', error);
