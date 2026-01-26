@@ -10,6 +10,7 @@ const defaultSettings = {
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4.1-nano',
   theme: 'system',
+  fontSize: 'medium',
   autoSubmitPrompt: true
 };
 
@@ -20,6 +21,7 @@ const loadModelsBtn = document.getElementById('load-models-btn');
 const modelSelect = document.getElementById('model');
 const modelStatusEl = document.getElementById('model-status');
 const themeSelect = document.getElementById('theme');
+const fontSizeSelect = document.getElementById('fontSize');
 
 /**
  * Detect if Firefox theme is dark
@@ -201,6 +203,7 @@ async function loadSettings() {
     document.getElementById('defaultPrompt').value = settings.defaultPrompt;
     document.getElementById('autoSubmitPrompt').checked = settings.autoSubmitPrompt;
     themeSelect.value = settings.theme;
+    fontSizeSelect.value = settings.fontSize;
     applyTheme(settings.theme);
 
     // Remember saved model setting
@@ -228,6 +231,7 @@ async function saveSettings(e) {
     model: document.getElementById('model').value,
     defaultPrompt: document.getElementById('defaultPrompt').value.trim(),
     theme: themeSelect.value,
+    fontSize: fontSizeSelect.value,
     autoSubmitPrompt: document.getElementById('autoSubmitPrompt').checked
   };
 

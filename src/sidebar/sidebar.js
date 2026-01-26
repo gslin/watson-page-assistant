@@ -31,8 +31,25 @@ const defaultSettings = {
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4.1-nano',
   theme: 'system',
+  fontSize: 'medium',
   autoSubmitPrompt: true
 };
+
+/**
+ * Apply font size to the page
+ */
+function applyFontSize(fontSize) {
+  const sizeMap = {
+    'small': '12px',
+    'medium': '14px',
+    'large': '16px',
+    'xlarge': '18px'
+  };
+  document.documentElement.style.setProperty(
+    '--base-font-size',
+    sizeMap[fontSize] || '14px'
+  );
+}
 
 // Flag to track initial load for auto-submit
 let isInitialLoad = true;
@@ -123,6 +140,7 @@ async function loadSettings() {
     const stored = await browserAPI.storage.local.get(Object.keys(defaultSettings));
     settings = { ...defaultSettings, ...stored };
     applyTheme(settings.theme);
+    applyFontSize(settings.fontSize);
   } catch (error) {
     console.error('Failed to load settings:', error);
   }
@@ -491,6 +509,11 @@ browserAPI.storage.onChanged.addListener((changes, areaName) => {
     // 當 theme 變更時，套用新主題
     if (changes.theme) {
       applyTheme(changes.theme.newValue);
+    }
+
+    // Apply new font size when fontSize changes
+    if (changes.fontSize) {
+      applyFontSize(changes.fontSize.newValue);
     }
   }
 });
