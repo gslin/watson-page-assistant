@@ -263,3 +263,144 @@ button:active {
 .theme-dark .model-status-success {
   color: #c3e6cb;
 }
+
+/* Provider list styles */
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.provider-item {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.provider-item.active {
+  border-color: #0066cc;
+}
+
+.provider-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background-color: #fafafa;
+}
+
+.provider-header input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.provider-name {
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.provider-endpoint-summary {
+  flex: 1;
+  color: #666;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-toggle,
+.btn-delete {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 12px;
+  background: transparent;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.btn-toggle:hover,
+.btn-delete:hover {
+  background-color: #e0e0e0;
+}
+
+.btn-delete:hover {
+  color: #c00;
+}
+
+.provider-detail {
+  padding: 12px;
+  border-top: 1px solid #ddd;
+}
+
+.provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-preset {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: #f0f0f0;
+  color: #333;
+  border-radius: 4px;
+}
+
+.btn-preset:hover {
+  background-color: #e0e0e0;
+}
+
+/* Dark mode provider styles */
+.theme-dark .provider-item {
+  border-color: #444;
+}
+
+.theme-dark .provider-item.active {
+  border-color: #4da6ff;
+}
+
+.theme-dark .provider-header {
+  background-color: #2a2a2a;
+}
+
+.theme-dark .provider-endpoint-summary {
+  color: #999;
+}
+
+.theme-dark .btn-toggle,
+.theme-dark .btn-delete {
+  color: #999;
+}
+
+.theme-dark .btn-toggle:hover,
+.theme-dark .btn-delete:hover {
+  background-color: #444;
+}
+
+.theme-dark .btn-delete:hover {
+  color: #f66;
+}
+
+.theme-dark .provider-detail {
+  border-top-color: #444;
+}
+
+.theme-dark .btn-preset {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.theme-dark .btn-preset:hover {
+  background-color: #444;
+}

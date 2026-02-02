@@ -37,31 +37,21 @@
       </section>
 
       <section class="settings-section">
-        <h2>LLM</h2>
+        <h2>Providers</h2>
 
-        <div class="form-group">
-          <label for="endpoint">API Endpoint</label>
-          <input
-            type="url"
-            id="endpoint"
-            name="endpoint"
-            placeholder="https://api.openai.com/v1/chat/completions"
-            required
-          >
-          <small>OpenAI-compatible API endpoint URL</small>
-        </div>
+        <div id="provider-list" class="provider-list"></div>
 
-        <div class="form-group">
-          <label for="apiKey">API Key</label>
-          <input
-            type="password"
-            id="apiKey"
-            name="apiKey"
-            placeholder="sk-..."
-            required
-          >
-          <small>Your OpenAI API key (stored locally)</small>
+        <div class="provider-actions">
+          <button type="button" id="add-provider-btn" class="btn-secondary">Add Provider</button>
+          <div class="preset-buttons">
+            <button type="button" class="btn-preset" data-preset="openai">+ OpenAI</button>
+            <button type="button" class="btn-preset" data-preset="mistral">+ Mistral AI</button>
+          </div>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Model</h2>
 
         <div class="form-group">
           <label for="model">Model</label>
@@ -73,6 +63,10 @@
           </div>
           <small id="model-status">Select the AI model to use</small>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Prompt</h2>
 
         <div class="form-group">
           <label for="defaultPrompt">Default Message</label>

@@ -46,19 +46,72 @@ export const storage = {
  * Default settings
  */
 export const defaultSettings = {
-  endpoint: 'https://api.openai.com/v1/chat/completions',
-  apiKey: '',
+  providers: [
+    {
+      id: 'default-openai',
+      name: 'OpenAI',
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      apiKey: ''
+    }
+  ],
+  activeProviderId: 'default-openai',
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4o-mini'
 };
+
+/**
+ * Migrate old settings format (endpoint/apiKey at top level) to new providers format
+ */
+async function migrateSettings(stored) {
+  if (stored.endpoint && !stored.providers) {
+    const migrated = {
+      providers: [
+        {
+          id: 'migrated',
+          name: 'My API',
+          endpoint: stored.endpoint,
+          apiKey: stored.apiKey || ''
+        }
+      ],
+      activeProviderId: 'migrated'
+    };
+    // Write new format and remove old keys
+    await storage.set(migrated);
+    await storage.remove(['endpoint', 'apiKey']);
+    return { ...stored, ...migrated, endpoint: undefined, apiKey: undefined };
+  }
+  return stored;
+}
+
+/**
+ * Get the active provider from settings
+ */
+export function getActiveProvider(settings) {
+  const providers = settings.providers || defaultSettings.providers;
+  const activeId = settings.activeProviderId || defaultSettings.activeProviderId;
+  return providers.find(p => p.id === activeId) || providers[0];
+}
 
 /**
  * Get settings with defaults
  * @returns {Promise<Object>}
  */
 export async function getSettings() {
-  const stored = await storage.get(Object.keys(defaultSettings));
-  return { ...defaultSettings, ...stored };
+  const stored = await storage.get(null);
+  const migrated = await migrateSettings(stored);
+  const result = { ...defaultSettings };
+  for (const key of Object.keys(defaultSettings)) {
+    if (migrated[key] !== undefined) {
+      result[key] = migrated[key];
+    }
+  }
+  // Preserve extra keys like model, theme, fontSize, etc.
+  for (const key of Object.keys(migrated)) {
+    if (migrated[key] !== undefined) {
+      result[key] = migrated[key];
+    }
+  }
+  return result;
 }
 
 /**

@@ -7,8 +7,8 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 // Configure marked
 if (typeof MarkedModule !== 'undefined') {
   MarkedModule.marked.setOptions({
-    breaks: true,  // 支援換行
-    gfm: true      // GitHub Flavored Markdown
+    breaks: true,
+    gfm: true
   });
 }
 
@@ -20,14 +20,20 @@ function renderMarkdown(content) {
     const rawHtml = MarkedModule.marked.parse(content);
     return DOMPurifyModule.DOMPurify.sanitize(rawHtml);
   }
-  // Fallback: escape HTML for safety
   return content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // Default settings
 const defaultSettings = {
-  endpoint: 'https://api.openai.com/v1/chat/completions',
-  apiKey: '',
+  providers: [
+    {
+      id: 'default-openai',
+      name: 'OpenAI',
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      apiKey: ''
+    }
+  ],
+  activeProviderId: 'default-openai',
   defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
   model: 'gpt-4.1-nano',
   theme: 'system',
@@ -61,7 +67,6 @@ async function isFirefoxThemeDark() {
   try {
     const theme = await browserAPI.theme.getCurrent();
     if (theme?.colors?.frame) {
-      // Parse the frame color to determine brightness
       const color = theme.colors.frame;
       let r, g, b;
 
@@ -82,7 +87,6 @@ async function isFirefoxThemeDark() {
       }
 
       if (r !== undefined) {
-        // Calculate perceived brightness (ITU-R BT.709)
         const brightness = (r * 0.2126 + g * 0.7152 + b * 0.0722);
         return brightness < 128;
       }
@@ -90,7 +94,6 @@ async function isFirefoxThemeDark() {
   } catch (error) {
     console.error('Failed to detect Firefox theme:', error);
   }
-  // Fallback to system preference
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
@@ -115,7 +118,7 @@ let chatHistory = [];
 let pageContent = null;
 let currentTabId = null;
 let abortController = null;
-let currentModel = null;  // Session-level model (不存回 storage)
+let currentModel = null;
 
 // DOM Elements
 const chatContainer = document.getElementById('chat-container');
@@ -133,11 +136,60 @@ const errorClose = document.getElementById('error-close');
 const modelSelect = document.getElementById('model-select');
 
 /**
+ * Parse model value to {providerId, modelId}
+ */
+function parseModelValue(value) {
+  const idx = (value || '').indexOf('::');
+  if (idx === -1) return { providerId: null, modelId: value };
+  return { providerId: value.substring(0, idx), modelId: value.substring(idx + 2) };
+}
+
+/**
+ * Find provider by ID
+ */
+function findProvider(providerId) {
+  const providers = settings.providers || defaultSettings.providers;
+  return providers.find(p => p.id === providerId);
+}
+
+/**
+ * Get provider for the currently selected model
+ */
+function getProviderForCurrentModel() {
+  const { providerId } = parseModelValue(currentModel);
+  if (providerId) {
+    const provider = findProvider(providerId);
+    if (provider) return provider;
+  }
+  // Fallback to active provider
+  const providers = settings.providers || defaultSettings.providers;
+  const activeId = settings.activeProviderId || defaultSettings.activeProviderId;
+  return providers.find(p => p.id === activeId) || providers[0];
+}
+
+/**
  * Load settings from storage
  */
 async function loadSettings() {
   try {
-    const stored = await browserAPI.storage.local.get(Object.keys(defaultSettings));
+    const stored = await browserAPI.storage.local.get(null);
+
+    // Migration: old format -> new format
+    if (stored.endpoint && !stored.providers) {
+      const migrated = {
+        providers: [{
+          id: 'migrated',
+          name: 'My API',
+          endpoint: stored.endpoint,
+          apiKey: stored.apiKey || ''
+        }],
+        activeProviderId: 'migrated'
+      };
+      await browserAPI.storage.local.set(migrated);
+      await browserAPI.storage.local.remove(['endpoint', 'apiKey']);
+      Object.assign(stored, migrated);
+    }
+
     settings = { ...defaultSettings, ...stored };
     applyTheme(settings.theme);
     applyFontSize(settings.fontSize);
@@ -147,36 +199,63 @@ async function loadSettings() {
 }
 
 /**
- * Populate model selector dropdown from cached models
+ * Populate model selector dropdown from cached models for all providers
  */
 async function populateModelSelect() {
   try {
-    // 從 cache 讀取 model list
+    const providers = settings.providers || defaultSettings.providers;
     const { cachedModels } = await browserAPI.storage.local.get('cachedModels');
 
-    if (!cachedModels || cachedModels.length === 0) {
-      // 若無 cache，使用預設 model
-      modelSelect.innerHTML = `<option value="${settings.model}">${settings.model}</option>`;
+    modelSelect.innerHTML = '';
+    let hasModels = false;
+
+    for (const provider of providers) {
+      const models = (cachedModels && cachedModels[provider.id]) || [];
+      if (models.length === 0) continue;
+
+      hasModels = true;
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = provider.name || provider.id;
+
+      for (const m of models) {
+        const option = document.createElement('option');
+        option.value = `${provider.id}::${m}`;
+        option.textContent = m;
+        if (option.value === settings.model) {
+          option.selected = true;
+        }
+        optgroup.appendChild(option);
+      }
+
+      modelSelect.appendChild(optgroup);
+    }
+
+    if (!hasModels) {
+      // Fallback: show current setting as single option
+      const option = document.createElement('option');
+      option.value = settings.model;
+      const { modelId } = parseModelValue(settings.model);
+      option.textContent = modelId;
+      modelSelect.appendChild(option);
       currentModel = settings.model;
       return;
     }
 
-    // 填充 select options
-    modelSelect.innerHTML = cachedModels
-      .map(m => `<option value="${m}"${m === settings.model ? ' selected' : ''}>${m}</option>`)
-      .join('');
-
-    // 設定初始值
+    // Restore selection
     currentModel = currentModel || settings.model;
-    if (cachedModels.includes(currentModel)) {
+    if (modelSelect.querySelector(`option[value="${CSS.escape(currentModel)}"]`)) {
       modelSelect.value = currentModel;
-    } else if (cachedModels.length > 0) {
-      currentModel = cachedModels[0];
-      modelSelect.value = currentModel;
+    } else {
+      // Select first available
+      const firstOption = modelSelect.querySelector('option');
+      if (firstOption) {
+        currentModel = firstOption.value;
+        modelSelect.value = currentModel;
+      }
     }
   } catch (error) {
     console.error('Failed to load cached models:', error);
-    modelSelect.innerHTML = `<option value="${settings.model}">${settings.model}</option>`;
+    modelSelect.innerHTML = `<option value="${settings.model}">${parseModelValue(settings.model).modelId}</option>`;
     currentModel = settings.model;
   }
 }
@@ -250,7 +329,6 @@ async function extractContent() {
 
     currentTabId = tabInfo.tabId;
 
-    // Send message to content script
     const response = await new Promise((resolve, reject) => {
       browserAPI.runtime.sendMessage(
         { type: 'FORWARD_TO_TAB', tabId: currentTabId, payload: { type: 'EXTRACT_CONTENT' } },
@@ -270,18 +348,16 @@ async function extractContent() {
 
     pageContent = response.data;
 
-    // Update page info display
     pageTitleEl.textContent = pageContent.title;
     pageUrlEl.textContent = pageContent.url;
     pageInfo.hidden = false;
 
     addMessage('system', `Page extracted: "${pageContent.title}"`);
 
-    // Enable send button
     updateSendButtonState();
 
-    // Auto-submit prompt if enabled and conditions are met
-    if (isInitialLoad && settings.autoSubmitPrompt && settings.defaultPrompt && settings.apiKey) {
+    const provider = getProviderForCurrentModel();
+    if (isInitialLoad && settings.autoSubmitPrompt && settings.defaultPrompt && provider.apiKey) {
       isInitialLoad = false;
       sendMessage();
     }
@@ -297,24 +373,28 @@ async function extractContent() {
  */
 function updateSendButtonState() {
   const hasInput = userInput.value.trim().length > 0;
-  const hasApiKey = settings.apiKey.length > 0;
+  const provider = getProviderForCurrentModel();
+  const hasApiKey = provider && provider.apiKey && provider.apiKey.length > 0;
   sendBtn.disabled = !hasInput || !hasApiKey;
 }
 
 /**
- * Stream chat completion from OpenAI API
+ * Stream chat completion from API
  */
 async function streamChatCompletion(messages, onChunk) {
   abortController = new AbortController();
 
-  const response = await fetch(settings.endpoint, {
+  const provider = getProviderForCurrentModel();
+  const { modelId } = parseModelValue(currentModel);
+
+  const response = await fetch(provider.endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${settings.apiKey}`
+      'Authorization': `Bearer ${provider.apiKey}`
     },
     body: JSON.stringify({
-      model: currentModel,
+      model: modelId,
       messages,
       stream: true
     }),
@@ -376,36 +456,31 @@ async function sendMessage() {
   const userText = userInput.value.trim();
   if (!userText) return;
 
-  if (!settings.apiKey) {
+  const provider = getProviderForCurrentModel();
+  if (!provider.apiKey) {
     showError('Please set your API key in the settings.');
     return;
   }
 
-  // Add user message
   addMessage('user', userText);
   chatHistory.push({ role: 'user', content: userText });
   userInput.value = '';
   updateSendButtonState();
 
-  // Build messages array
   const messages = [];
 
-  // System prompt with page content if available
   let systemContent = 'You are a helpful assistant. Always format your responses using Markdown.';
   if (pageContent) {
     systemContent += `\n\nPage Title: ${pageContent.title}\nPage URL: ${pageContent.url}\n\nPage Content:\n${pageContent.textContent}`;
   }
   messages.push({ role: 'system', content: systemContent });
 
-  // Add chat history
   messages.push(...chatHistory);
 
-  // Show typing indicator
   const typingIndicator = createTypingIndicator();
   chatContainer.appendChild(typingIndicator);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 
-  // Create assistant message element for streaming
   const assistantMessage = document.createElement('div');
   assistantMessage.className = 'message assistant';
   assistantMessage.style.display = 'none';
@@ -415,25 +490,21 @@ async function sendMessage() {
     sendBtn.disabled = true;
 
     const fullContent = await streamChatCompletion(messages, (chunk) => {
-      // Remove typing indicator and show message
       if (typingIndicator.parentNode) {
         typingIndicator.remove();
         chatContainer.appendChild(assistantMessage);
         assistantMessage.style.display = 'block';
       }
 
-      // Accumulate content and render markdown
       accumulatedContent += chunk;
       assistantMessage.innerHTML = renderMarkdown(accumulatedContent);
       chatContainer.scrollTop = chatContainer.scrollHeight;
     });
 
-    // Add to chat history
     chatHistory.push({ role: 'assistant', content: fullContent });
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      // Request was cancelled
       return;
     }
     console.error('Chat error:', error);
@@ -457,7 +528,6 @@ function clearChat() {
   welcomeMessage.hidden = false;
   chatContainer.appendChild(welcomeMessage);
 
-  // Restore default prompt
   if (settings.defaultPrompt) {
     userInput.value = settings.defaultPrompt;
   }
@@ -481,6 +551,7 @@ errorClose.addEventListener('click', hideError);
 userInput.addEventListener('input', updateSendButtonState);
 modelSelect.addEventListener('change', (e) => {
   currentModel = e.target.value;
+  updateSendButtonState();
 });
 userInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -494,24 +565,31 @@ userInput.addEventListener('keydown', (e) => {
 // Listen for storage changes to update settings
 browserAPI.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local') {
-    for (const key of Object.keys(changes)) {
-      if (key in settings) {
-        settings[key] = changes[key].newValue;
-      }
+    if (changes.providers) {
+      settings.providers = changes.providers.newValue;
+      updateSendButtonState();
     }
-    updateSendButtonState();
+    if (changes.activeProviderId) {
+      settings.activeProviderId = changes.activeProviderId.newValue;
+    }
+    if (changes.model) {
+      settings.model = changes.model.newValue;
+    }
+    if (changes.defaultPrompt) {
+      settings.defaultPrompt = changes.defaultPrompt.newValue;
+    }
+    if (changes.autoSubmitPrompt) {
+      settings.autoSubmitPrompt = changes.autoSubmitPrompt.newValue;
+    }
 
-    // 當 cachedModels 更新時，重新載入 model list
     if (changes.cachedModels) {
       populateModelSelect();
     }
 
-    // 當 theme 變更時，套用新主題
     if (changes.theme) {
       applyTheme(changes.theme.newValue);
     }
 
-    // Apply new font size when fontSize changes
     if (changes.fontSize) {
       applyFontSize(changes.fontSize.newValue);
     }
@@ -532,21 +610,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await populateModelSelect();
 
-  // Fill in default message
   if (settings.defaultPrompt) {
     userInput.value = settings.defaultPrompt;
   }
 
-  // Auto focus to input field
   userInput.focus();
 
   updateSendButtonState();
 
-  // Auto extract page content
   extractContent();
 });
 
-// Focus input when sidebar becomes visible (e.g., reopened via Ctrl-Y)
+// Focus input when sidebar becomes visible
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     userInput.focus();
