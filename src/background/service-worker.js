@@ -35,6 +35,13 @@ if (!isFirefox && chrome.commands) {
   });
 }
 
+// Firefox: Handle action (toolbar icon) click to open preferences
+if (isFirefox) {
+  browserAPI.action.onClicked.addListener(() => {
+    browserAPI.runtime.openOptionsPage();
+  });
+}
+
 // Chrome: Handle action (toolbar icon) click for per-tab side panel
 if (!isFirefox && chrome.action) {
   chrome.action.onClicked.addListener(async (tab) => {
