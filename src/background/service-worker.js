@@ -42,16 +42,10 @@ if (isFirefox) {
   });
 }
 
-// Chrome: Handle action (toolbar icon) click for per-tab side panel
+// Chrome: Handle action (toolbar icon) click to open preferences
 if (!isFirefox && chrome.action) {
-  chrome.action.onClicked.addListener(async (tab) => {
-    if (tab?.id && chrome.sidePanel) {
-      try {
-        await chrome.sidePanel.open({ tabId: tab.id });
-      } catch (error) {
-        console.error('Failed to open side panel:', error);
-      }
-    }
+  chrome.action.onClicked.addListener(() => {
+    chrome.runtime.openOptionsPage();
   });
 }
 
