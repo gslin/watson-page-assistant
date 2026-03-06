@@ -44,6 +44,14 @@ const PRESETS = {
   mistral: {
     name: 'Mistral AI',
     endpoint: 'https://api.mistral.ai/v1/chat/completions'
+  },
+  groq: {
+    name: 'Groq',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions'
+  },
+  cerebras: {
+    name: 'Cerebras',
+    endpoint: 'https://api.cerebras.ai/v1/chat/completions'
   }
 };
 
