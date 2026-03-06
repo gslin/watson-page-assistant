@@ -46,6 +46,8 @@
           <div class="preset-buttons">
             <button type="button" class="btn-preset" data-preset="openai">+ OpenAI</button>
             <button type="button" class="btn-preset" data-preset="mistral">+ Mistral AI</button>
+            <button type="button" class="btn-preset" data-preset="groq">+ Groq</button>
+            <button type="button" class="btn-preset" data-preset="cerebras">+ Cerebras</button>
           </div>
         </div>
       </section>
@@ -66,25 +68,44 @@
       </section>
 
       <section class="settings-section">
-        <h2>Prompt</h2>
+        <h2>Prompt Profiles</h2>
 
-        <div class="form-group">
-          <label for="defaultPrompt">Default Message</label>
-          <textarea
-            id="defaultPrompt"
-            name="defaultPrompt"
-            rows="4"
-            placeholder="You are a helpful assistant..."
-          ></textarea>
-          <small>Default message to fill in the input field when sidebar opens</small>
+        <div id="profile-list" class="profile-list"></div>
+
+        <div class="profile-actions">
+          <button type="button" id="add-profile-btn" class="btn-secondary">Add Profile</button>
         </div>
+      </section>
 
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="autoSubmitPrompt" name="autoSubmitPrompt">
-            Auto-submit prompt when sidebar opens
-          </label>
-          <small>Automatically send the default message when the sidebar is opened</small>
+      <section class="settings-section">
+        <h2>Keyboard Shortcuts</h2>
+        <p class="section-description">Assign profiles to shortcut slots. Then configure the actual key bindings in your browser's extension settings (Chrome: <code>chrome://extensions/shortcuts</code> / Firefox: Add-ons Manager → this extension).</p>
+
+        <div class="shortcut-list">
+          <div class="shortcut-row">
+            <label class="shortcut-slot-label">Slot 1</label>
+            <select id="shortcut-slot-1" class="shortcut-profile-select">
+              <option value="">(none)</option>
+            </select>
+          </div>
+          <div class="shortcut-row">
+            <label class="shortcut-slot-label">Slot 2</label>
+            <select id="shortcut-slot-2" class="shortcut-profile-select">
+              <option value="">(none)</option>
+            </select>
+          </div>
+          <div class="shortcut-row">
+            <label class="shortcut-slot-label">Slot 3</label>
+            <select id="shortcut-slot-3" class="shortcut-profile-select">
+              <option value="">(none)</option>
+            </select>
+          </div>
+          <div class="shortcut-row">
+            <label class="shortcut-slot-label">Slot 4</label>
+            <select id="shortcut-slot-4" class="shortcut-profile-select">
+              <option value="">(none)</option>
+            </select>
+          </div>
         </div>
       </section>
 

@@ -503,3 +503,31 @@ body {
   border-color: #555;
   color: #e0e0e0;
 }
+
+/* Profile Selector */
+.profile-selector {
+  padding: 8px 16px;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.profile-selector select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.theme-dark .profile-selector {
+  background-color: #2a2a2a;
+  border-color: #444;
+}
+
+.theme-dark .profile-selector select {
+  background-color: #333;
+  border-color: #555;
+  color: #e0e0e0;
+}

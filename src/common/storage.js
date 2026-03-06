@@ -55,7 +55,14 @@ export const defaultSettings = {
     }
   ],
   activeProviderId: 'default-openai',
-  defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
+  promptProfiles: [
+    {
+      id: 'profile-default',
+      name: 'Summarize',
+      prompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.'
+    }
+  ],
+  activeProfileId: 'profile-default',
   model: 'gpt-4o-mini'
 };
 

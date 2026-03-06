@@ -32,6 +32,18 @@
       "suggested_key": {
         "default": "Ctrl+Y"
       }
+    },
+    "open-profile-1": {
+      "description": "Open sidebar with shortcut slot 1"
+    },
+    "open-profile-2": {
+      "description": "Open sidebar with shortcut slot 2"
+    },
+    "open-profile-3": {
+      "description": "Open sidebar with shortcut slot 3"
+    },
+    "open-profile-4": {
+      "description": "Open sidebar with shortcut slot 4"
     }
   },
   "options_ui": {

@@ -19,18 +19,35 @@ async function init() {
 // Initialize on install/update
 browserAPI.runtime.onInstalled.addListener(init);
 
-// Chrome: Handle keyboard shortcut command
-if (!isFirefox && chrome.commands) {
-  chrome.commands.onCommand.addListener(async (command) => {
-    if (command === 'open-sidebar') {
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab?.id) {
-          await chrome.sidePanel.open({ tabId: tab.id });
-        }
-      } catch (error) {
-        console.error('Failed to open side panel:', error);
+const PROFILE_COMMANDS = ['open-profile-1', 'open-profile-2', 'open-profile-3', 'open-profile-4'];
+
+// Handle keyboard shortcut commands (works for both Chrome and Firefox)
+if (browserAPI.commands?.onCommand) {
+  browserAPI.commands.onCommand.addListener(async (command) => {
+    const isProfileCommand = PROFILE_COMMANDS.includes(command);
+    const isSidebarCommand = command === 'open-sidebar' || isProfileCommand;
+
+    if (!isSidebarCommand) return;
+
+    // For profile commands: look up which profile is assigned to this slot
+    if (isProfileCommand) {
+      const { profileShortcuts } = await browserAPI.storage.local.get('profileShortcuts');
+      const profileId = (profileShortcuts || {})[command];
+      if (profileId) {
+        await browserAPI.storage.local.set({ pendingProfileId: profileId });
       }
+    }
+
+    // Open the sidebar
+    try {
+      if (!isFirefox && chrome.sidePanel) {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) await chrome.sidePanel.open({ tabId: tab.id });
+      } else if (isFirefox && browser.sidebarAction) {
+        await browser.sidebarAction.open();
+      }
+    } catch (error) {
+      console.error('Failed to open sidebar:', error);
     }
   });
 }

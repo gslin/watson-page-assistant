@@ -34,7 +34,14 @@ const defaultSettings = {
     }
   ],
   activeProviderId: 'default-openai',
-  defaultPrompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.',
+  promptProfiles: [
+    {
+      id: 'profile-default',
+      name: 'Summarize',
+      prompt: 'You are a helpful assistant that analyzes web page content. Please summarize the key points of the following article.'
+    }
+  ],
+  activeProfileId: 'profile-default',
   model: 'gpt-4.1-nano',
   theme: 'system',
   fontSize: 'medium',
@@ -134,6 +141,7 @@ const errorBanner = document.getElementById('error-banner');
 const errorMessage = document.getElementById('error-message');
 const errorClose = document.getElementById('error-close');
 const modelSelect = document.getElementById('model-select');
+const profileSelect = document.getElementById('profile-select');
 
 /**
  * Parse model value to {providerId, modelId}
@@ -261,6 +269,58 @@ async function populateModelSelect() {
 }
 
 /**
+ * Populate profile selector dropdown
+ */
+function populateProfileSelect() {
+  const profiles = settings.promptProfiles || defaultSettings.promptProfiles;
+  profileSelect.innerHTML = '';
+
+  for (const profile of profiles) {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = profile.name || '(unnamed)';
+    profileSelect.appendChild(option);
+  }
+
+  // Restore selection to active profile
+  const activeId = settings.activeProfileId || defaultSettings.activeProfileId;
+  if (profileSelect.querySelector(`option[value="${CSS.escape(activeId)}"]`)) {
+    profileSelect.value = activeId;
+  } else {
+    const first = profileSelect.querySelector('option');
+    if (first) profileSelect.value = first.value;
+  }
+
+  updatePromptFromProfile();
+}
+
+/**
+ * Get the currently selected profile
+ */
+function getSelectedProfile() {
+  const profiles = settings.promptProfiles || defaultSettings.promptProfiles;
+  return profiles.find(p => p.id === profileSelect.value) || profiles[0];
+}
+
+/**
+ * Update the input textarea (and model if set) from the selected profile
+ */
+function updatePromptFromProfile() {
+  const profile = getSelectedProfile();
+  if (!profile) return;
+
+  userInput.value = profile.prompt;
+
+  // Switch model if profile specifies one
+  if (profile.model && modelSelect.querySelector(`option[value="${CSS.escape(profile.model)}"]`)) {
+    currentModel = profile.model;
+    modelSelect.value = profile.model;
+  }
+
+  updateSendButtonState();
+}
+
+/**
  * Show error message
  */
 function showError(message) {
@@ -357,7 +417,9 @@ async function extractContent() {
     updateSendButtonState();
 
     const provider = getProviderForCurrentModel();
-    if (isInitialLoad && settings.autoSubmitPrompt && settings.defaultPrompt && provider.apiKey) {
+    const profile = getSelectedProfile();
+    const shouldAutoSubmit = profile?.autoSubmit ?? true;
+    if (isInitialLoad && shouldAutoSubmit && profile?.prompt && provider.apiKey) {
       isInitialLoad = false;
       sendMessage();
     }
@@ -528,8 +590,9 @@ function clearChat() {
   welcomeMessage.hidden = false;
   chatContainer.appendChild(welcomeMessage);
 
-  if (settings.defaultPrompt) {
-    userInput.value = settings.defaultPrompt;
+  const profile = getSelectedProfile();
+  if (profile?.prompt) {
+    userInput.value = profile.prompt;
   }
 
   updateSendButtonState();
@@ -553,6 +616,9 @@ modelSelect.addEventListener('change', (e) => {
   currentModel = e.target.value;
   updateSendButtonState();
 });
+profileSelect.addEventListener('change', () => {
+  updatePromptFromProfile();
+});
 userInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -575,13 +641,22 @@ browserAPI.storage.onChanged.addListener((changes, areaName) => {
     if (changes.model) {
       settings.model = changes.model.newValue;
     }
-    if (changes.defaultPrompt) {
-      settings.defaultPrompt = changes.defaultPrompt.newValue;
+    if (changes.promptProfiles) {
+      settings.promptProfiles = changes.promptProfiles.newValue;
+      populateProfileSelect();
     }
-    if (changes.autoSubmitPrompt) {
-      settings.autoSubmitPrompt = changes.autoSubmitPrompt.newValue;
+    if (changes.activeProfileId) {
+      settings.activeProfileId = changes.activeProfileId.newValue;
     }
-
+    if (changes.pendingProfileId?.newValue) {
+      // Shortcut triggered while sidebar was already open (e.g. Firefox)
+      const profileId = changes.pendingProfileId.newValue;
+      browserAPI.storage.local.remove('pendingProfileId');
+      if (profileSelect.querySelector(`option[value="${CSS.escape(profileId)}"]`)) {
+        profileSelect.value = profileId;
+        updatePromptFromProfile();
+      }
+    }
     if (changes.cachedModels) {
       populateModelSelect();
     }
@@ -605,14 +680,27 @@ if (browserAPI.theme?.onUpdated) {
   });
 }
 
+/**
+ * Apply a pending profile switch triggered by keyboard shortcut
+ */
+async function applyPendingProfile() {
+  const { pendingProfileId } = await browserAPI.storage.local.get('pendingProfileId');
+  if (!pendingProfileId) return;
+  await browserAPI.storage.local.remove('pendingProfileId');
+  if (profileSelect.querySelector(`option[value="${CSS.escape(pendingProfileId)}"]`)) {
+    profileSelect.value = pendingProfileId;
+    updatePromptFromProfile();
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await populateModelSelect();
+  populateProfileSelect();
 
-  if (settings.defaultPrompt) {
-    userInput.value = settings.defaultPrompt;
-  }
+  // Switch to profile requested by keyboard shortcut (if any)
+  await applyPendingProfile();
 
   userInput.focus();
 
