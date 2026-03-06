@@ -1,1 +1,1 @@
-* Use English on code and comments.
+AGENTS.md
