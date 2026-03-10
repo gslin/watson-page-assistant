@@ -402,6 +402,10 @@ async function extractContent() {
       );
     });
 
+    if (response?.error) {
+      throw new Error(response.error);
+    }
+
     if (!response?.success || !response?.data) {
       throw new Error('Failed to extract page content');
     }

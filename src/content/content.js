@@ -9,52 +9,49 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
  * @returns {Object|null} Extracted content or null if extraction fails
  */
 function extractContent() {
-  try {
-    // Clone the document to avoid modifying the original
-    const documentClone = document.cloneNode(true);
+  const documentClone = document.cloneNode(true);
 
-    // Check if Readability is available
-    if (typeof Readability === 'undefined') {
-      console.error('Readability is not loaded');
-      return null;
-    }
+  if (typeof Readability === 'undefined') {
+    throw new Error('Readability library is not loaded');
+  }
 
-    const reader = new Readability(documentClone);
-    const article = reader.parse();
+  const reader = new Readability(documentClone);
+  const article = reader.parse();
 
-    if (!article) {
-      // Fallback: return basic page info if Readability fails
-      return {
-        title: document.title,
-        content: document.body?.innerText?.substring(0, 50000) || '',
-        textContent: document.body?.innerText?.substring(0, 50000) || '',
-        excerpt: '',
-        byline: '',
-        siteName: window.location.hostname,
-        url: window.location.href
-      };
-    }
-
+  if (!article) {
+    // Fallback: return basic page info if Readability fails
     return {
-      title: article.title || document.title,
-      content: article.content || '',
-      textContent: article.textContent || '',
-      excerpt: article.excerpt || '',
-      byline: article.byline || '',
-      siteName: article.siteName || window.location.hostname,
+      title: document.title,
+      content: document.body?.innerText?.substring(0, 50000) || '',
+      textContent: document.body?.innerText?.substring(0, 50000) || '',
+      excerpt: '',
+      byline: '',
+      siteName: window.location.hostname,
       url: window.location.href
     };
-  } catch (error) {
-    console.error('Error extracting content:', error);
-    return null;
   }
+
+  return {
+    title: article.title || document.title,
+    content: article.content || '',
+    textContent: article.textContent || '',
+    excerpt: article.excerpt || '',
+    byline: article.byline || '',
+    siteName: article.siteName || window.location.hostname,
+    url: window.location.href
+  };
 }
 
 // Listen for messages from sidebar/background
 browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_CONTENT') {
-    const content = extractContent();
-    sendResponse({ success: !!content, data: content });
+    try {
+      const content = extractContent();
+      sendResponse({ success: true, data: content });
+    } catch (error) {
+      console.error('Error extracting content:', error);
+      sendResponse({ success: false, data: null, error: error.message });
+    }
     return true; // Keep the message channel open for async response
   }
 });
