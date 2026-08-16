@@ -3,7 +3,7 @@
   "name": "Watson Page Assistant",
   "version": "1.0.0",
   "description": "AI-powered page analysis using OpenAI API",
-  "permissions": ["activeTab", "storage", "sidePanel"],
+  "permissions": ["activeTab", "storage", "sidePanel", "windows"],
   "background": {
     "service_worker": "background/service-worker.js"
   },
@@ -23,19 +23,19 @@
       "suggested_key": {
         "default": "Ctrl+Shift+Y"
       },
-      "description": "Open Watson Page Assistant sidebar"
+      "description": "Open Watson Page Assistant"
     },
     "open-profile-1": {
-      "description": "Open sidebar with shortcut slot 1"
+      "description": "Open assistant with shortcut slot 1"
     },
     "open-profile-2": {
-      "description": "Open sidebar with shortcut slot 2"
+      "description": "Open assistant with shortcut slot 2"
     },
     "open-profile-3": {
-      "description": "Open sidebar with shortcut slot 3"
+      "description": "Open assistant with shortcut slot 3"
     },
     "open-profile-4": {
-      "description": "Open sidebar with shortcut slot 4"
+      "description": "Open assistant with shortcut slot 4"
     }
   },
   "options_ui": {

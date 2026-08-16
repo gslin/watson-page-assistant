@@ -32,22 +32,23 @@
     "open_at_install": false
   },
   "commands": {
-    "_execute_sidebar_action": {
+    "open-sidebar": {
       "suggested_key": {
         "default": "Ctrl+Y"
-      }
+      },
+      "description": "Open Watson Page Assistant"
     },
     "open-profile-1": {
-      "description": "Open sidebar with shortcut slot 1"
+      "description": "Open assistant with shortcut slot 1"
     },
     "open-profile-2": {
-      "description": "Open sidebar with shortcut slot 2"
+      "description": "Open assistant with shortcut slot 2"
     },
     "open-profile-3": {
-      "description": "Open sidebar with shortcut slot 3"
+      "description": "Open assistant with shortcut slot 3"
     },
     "open-profile-4": {
-      "description": "Open sidebar with shortcut slot 4"
+      "description": "Open assistant with shortcut slot 4"
     }
   },
   "options_ui": {
