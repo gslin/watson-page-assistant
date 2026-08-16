@@ -54,7 +54,7 @@ function buildForBrowser(browser) {
   fs.mkdirSync(browserDist, { recursive: true });
 
   // Copy source files
-  const srcDirs = ['common', 'background', 'sidebar', 'options', 'content'];
+  const srcDirs = ['common', 'background', 'sidebar', 'popup', 'options', 'content'];
   for (const dir of srcDirs) {
     const srcPath = path.join(srcDir, dir);
     const destPath = path.join(browserDist, dir);

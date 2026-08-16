@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" class="popup-mode">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watson Page Assistant</title>
+  <link rel="stylesheet" href="../sidebar/sidebar.css">
+</head>
+<body>
+  <div class="sidebar-container">
+    <header class="header">
+      <h1>Watson Assistant</h1>
+      <div class="header-actions">
+        <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+        <button id="clear-btn" class="icon-btn" title="Reset chat">🔄</button>
+      </div>
+    </header>
+
+    <div class="model-selector">
+      <select id="model-select" title="Select model">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+
+    <div class="profile-selector">
+      <select id="profile-select" title="Select prompt profile">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+
+    <div id="page-info" class="page-info" hidden>
+      <div class="page-title" id="page-title"></div>
+      <div class="page-url" id="page-url"></div>
+    </div>
+
+    <div id="chat-container" class="chat-container">
+      <div id="welcome-message" class="welcome-message">
+        <p>Welcome! Page content will be extracted automatically.</p>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="message-input-wrapper">
+        <textarea
+          id="user-input"
+          placeholder="Type your message..."
+          rows="2"
+        ></textarea>
+        <button id="send-btn" class="btn-send" disabled>Send</button>
+      </div>
+    </div>
+
+    <div id="error-banner" class="error-banner" hidden>
+      <span id="error-message"></span>
+      <button id="error-close" class="error-close">×</button>
+    </div>
+  </div>
+
+  <script src="../common/marked.min.js"></script>
+  <script src="../common/dompurify.min.js"></script>
+  <script src="../sidebar/sidebar.js" type="module"></script>
+</body>
+</html>

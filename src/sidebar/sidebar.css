@@ -2,6 +2,13 @@
   --base-font-size: 14px;
 }
 
+/* Standalone popup window: fill the window so the user can resize it */
+html.popup-mode,
+html.popup-mode body {
+  width: 100%;
+  height: 100%;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
