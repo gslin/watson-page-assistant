@@ -14,7 +14,11 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     },
-    "default_title": "Watson Page Assistant Settings"
+    "default_title": "Watson Page Assistant Settings",
+    "theme_icons": [
+      { "light": "icons/icon-16-light.png", "dark": "icons/icon-16.png", "size": 16 },
+      { "light": "icons/icon-32-light.png", "dark": "icons/icon-32.png", "size": 32 }
+    ]
   },
   "sidebar_action": {
     "default_panel": "sidebar/sidebar.html",
