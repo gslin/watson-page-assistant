@@ -63,7 +63,8 @@ export const defaultSettings = {
     }
   ],
   activeProfileId: 'profile-default',
-  model: 'gpt-4o-mini'
+  model: 'gpt-4o-mini',
+  displayMode: 'sidebar'
 };
 
 /**

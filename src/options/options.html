@@ -15,6 +15,15 @@
         <h2>Appearance</h2>
 
         <div class="form-group">
+          <label for="displayMode">Display Mode</label>
+          <select id="displayMode" name="displayMode">
+            <option value="sidebar">Sidebar</option>
+            <option value="popup">Popup</option>
+          </select>
+          <small>Sidebar: keyboard shortcut opens the side panel; toolbar icon opens this settings page. Popup: toolbar icon and keyboard shortcuts open the assistant in a separate window. On Firefox this uses the page's <code>window.open</code> so <code>browser.link.open_newwindow.restriction</code> is honored (0 → tab); if the page blocks popups, a tab is opened instead.</small>
+        </div>
+
+        <div class="form-group">
           <label for="theme">Theme</label>
           <select id="theme" name="theme">
             <option value="system">System (Auto)</option>
@@ -32,7 +41,7 @@
             <option value="large">Large</option>
             <option value="xlarge">Extra Large</option>
           </select>
-          <small>Adjust text size in the sidebar</small>
+          <small>Adjust text size in the assistant</small>
         </div>
       </section>
 
@@ -79,7 +88,7 @@
 
       <section class="settings-section">
         <h2>Keyboard Shortcuts</h2>
-        <p class="section-description">Assign profiles to shortcut slots. Then configure the actual key bindings in your browser's extension settings (Chrome: <code>chrome://extensions/shortcuts</code> / Firefox: Add-ons Manager → this extension).</p>
+        <p class="section-description">Assign profiles to shortcut slots. Shortcuts open the assistant in the display mode chosen above. Configure the actual key bindings in your browser's extension settings (Chrome: <code>chrome://extensions/shortcuts</code> / Firefox: Add-ons Manager → this extension).</p>
 
         <div class="shortcut-list">
           <div class="shortcut-row">

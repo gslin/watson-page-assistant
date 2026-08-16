@@ -33,6 +33,7 @@ const defaultSettings = {
   model: 'gpt-4.1-nano',
   theme: 'system',
   fontSize: 'medium',
+  displayMode: 'sidebar',
   autoSubmitPrompt: true
 };
 
@@ -63,6 +64,7 @@ const modelSelect = document.getElementById('model');
 const modelStatusEl = document.getElementById('model-status');
 const themeSelect = document.getElementById('theme');
 const fontSizeSelect = document.getElementById('fontSize');
+const displayModeSelect = document.getElementById('displayMode');
 const providerListEl = document.getElementById('provider-list');
 const addProviderBtn = document.getElementById('add-provider-btn');
 const profileListEl = document.getElementById('profile-list');
@@ -301,7 +303,7 @@ function renderProfiles() {
       profile.autoSubmit = e.target.checked;
     });
     autoLabel.appendChild(autoCheckbox);
-    autoLabel.appendChild(document.createTextNode(' Auto-submit prompt when sidebar opens'));
+    autoLabel.appendChild(document.createTextNode(' Auto-submit prompt when the assistant opens'));
     autoGroup.appendChild(autoLabel);
     detail.appendChild(autoGroup);
 
@@ -685,6 +687,7 @@ async function loadSettings() {
 
     themeSelect.value = settings.theme;
     fontSizeSelect.value = settings.fontSize;
+    displayModeSelect.value = settings.displayMode === 'popup' ? 'popup' : 'sidebar';
     applyTheme(settings.theme);
 
     savedModel = settings.model;
@@ -721,7 +724,8 @@ async function saveSettings(e) {
     profileShortcuts,
     model: document.getElementById('model').value,
     theme: themeSelect.value,
-    fontSize: fontSizeSelect.value
+    fontSize: fontSizeSelect.value,
+    displayMode: displayModeSelect.value === 'popup' ? 'popup' : 'sidebar'
   };
 
   try {

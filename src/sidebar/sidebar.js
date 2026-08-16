@@ -45,6 +45,7 @@ const defaultSettings = {
   model: 'gpt-4.1-nano',
   theme: 'system',
   fontSize: 'medium',
+  displayMode: 'sidebar',
   autoSubmitPrompt: true
 };
 
