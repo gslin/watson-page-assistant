@@ -42,6 +42,23 @@ function extractContent() {
   };
 }
 
+/**
+ * Open via the page's window.open so Firefox applies
+ * browser.link.open_newwindow / .restriction (content ProvideWindow path).
+ * Background/extension window.open is chrome-privileged and always creates a window.
+ */
+function openAssistantFromPage(url, name, features) {
+  try {
+    const pageWindow = window.wrappedJSObject || window;
+    const opened = pageWindow.open(url, name, features);
+    if (opened) return true;
+  } catch (error) {
+    console.error('Page window.open failed:', error);
+  }
+
+  return false;
+}
+
 // Listen for messages from sidebar/background
 browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_CONTENT') {
@@ -53,6 +70,16 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, data: null, error: error.message });
     }
     return true; // Keep the message channel open for async response
+  }
+
+  if (message.type === 'OPEN_ASSISTANT') {
+    const opened = openAssistantFromPage(
+      message.url,
+      message.name || 'watson-assistant',
+      message.features || ''
+    );
+    sendResponse({ ok: opened });
+    return true;
   }
 });
 
