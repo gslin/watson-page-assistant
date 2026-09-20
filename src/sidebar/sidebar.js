@@ -3,6 +3,11 @@
  */
 
 import { getProviderHeaders } from '../common/openai-client.js';
+import {
+  applyReasoningEffort,
+  getReasoningOptions,
+  populateReasoningSelect
+} from '../common/reasoning.js';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -45,6 +50,7 @@ const defaultSettings = {
   ],
   activeProfileId: 'profile-default',
   model: 'gpt-4.1-nano',
+  reasoningEffort: '',
   theme: 'system',
   fontSize: 'medium',
   displayMode: 'sidebar',
@@ -129,6 +135,7 @@ let pageContent = null;
 let currentTabId = null;
 let abortController = null;
 let currentModel = null;
+let cachedModelMeta = {};
 
 // DOM Elements
 const chatContainer = document.getElementById('chat-container');
@@ -144,6 +151,7 @@ const errorBanner = document.getElementById('error-banner');
 const errorMessage = document.getElementById('error-message');
 const errorClose = document.getElementById('error-close');
 const modelSelect = document.getElementById('model-select');
+const reasoningSelect = document.getElementById('reasoning-select');
 const profileSelect = document.getElementById('profile-select');
 
 /**
@@ -176,6 +184,26 @@ function getProviderForCurrentModel() {
   const providers = settings.providers || defaultSettings.providers;
   const activeId = settings.activeProviderId || defaultSettings.activeProviderId;
   return providers.find(p => p.id === activeId) || providers[0];
+}
+
+function getReasoningEffort() {
+  return reasoningSelect?.value || '';
+}
+
+function syncReasoningSelect(preferred) {
+  const provider = getProviderForCurrentModel();
+  const { modelId } = parseModelValue(currentModel);
+  const values = provider
+    ? getReasoningOptions(
+      provider.endpoint,
+      modelId,
+      cachedModelMeta[provider.id]?.[modelId]
+    )
+    : null;
+  const selected = preferred !== undefined
+    ? preferred
+    : (reasoningSelect?.value || settings.reasoningEffort || '');
+  populateReasoningSelect(reasoningSelect, values, selected);
 }
 
 /**
@@ -215,7 +243,11 @@ async function loadSettings() {
 async function populateModelSelect() {
   try {
     const providers = settings.providers || defaultSettings.providers;
-    const { cachedModels } = await browserAPI.storage.local.get('cachedModels');
+    const stored = await browserAPI.storage.local.get(['cachedModels', 'cachedModelMeta']);
+    const { cachedModels } = stored;
+    if (stored.cachedModelMeta) {
+      cachedModelMeta = stored.cachedModelMeta;
+    }
 
     modelSelect.innerHTML = '';
     let hasModels = false;
@@ -249,6 +281,7 @@ async function populateModelSelect() {
       option.textContent = modelId;
       modelSelect.appendChild(option);
       currentModel = settings.model;
+      syncReasoningSelect();
       return;
     }
 
@@ -264,10 +297,12 @@ async function populateModelSelect() {
         modelSelect.value = currentModel;
       }
     }
+    syncReasoningSelect();
   } catch (error) {
     console.error('Failed to load cached models:', error);
     modelSelect.innerHTML = `<option value="${settings.model}">${parseModelValue(settings.model).modelId}</option>`;
     currentModel = settings.model;
+    syncReasoningSelect();
   }
 }
 
@@ -319,6 +354,11 @@ function updatePromptFromProfile() {
     currentModel = profile.model;
     modelSelect.value = profile.model;
   }
+
+  const preferredReasoning = profile.model
+    ? (profile.reasoningEffort || '')
+    : (settings.reasoningEffort || '');
+  syncReasoningSelect(preferredReasoning);
 
   updateSendButtonState();
 }
@@ -455,15 +495,17 @@ async function streamChatCompletion(messages, onChunk) {
 
   const provider = getProviderForCurrentModel();
   const { modelId } = parseModelValue(currentModel);
+  const body = {
+    model: modelId,
+    messages,
+    stream: true
+  };
+  applyReasoningEffort(body, provider.endpoint, getReasoningEffort());
 
   const response = await fetch(provider.endpoint, {
     method: 'POST',
     headers: getProviderHeaders(provider, { json: true }),
-    body: JSON.stringify({
-      model: modelId,
-      messages,
-      stream: true
-    }),
+    body: JSON.stringify(body),
     signal: abortController.signal
   });
 
@@ -618,6 +660,7 @@ errorClose.addEventListener('click', hideError);
 userInput.addEventListener('input', updateSendButtonState);
 modelSelect.addEventListener('change', (e) => {
   currentModel = e.target.value;
+  syncReasoningSelect();
   updateSendButtonState();
 });
 profileSelect.addEventListener('change', () => {
@@ -645,6 +688,10 @@ browserAPI.storage.onChanged.addListener((changes, areaName) => {
     if (changes.model) {
       settings.model = changes.model.newValue;
     }
+    if (changes.reasoningEffort) {
+      settings.reasoningEffort = changes.reasoningEffort.newValue;
+      syncReasoningSelect(changes.reasoningEffort.newValue);
+    }
     if (changes.promptProfiles) {
       settings.promptProfiles = changes.promptProfiles.newValue;
       populateProfileSelect();
@@ -663,6 +710,10 @@ browserAPI.storage.onChanged.addListener((changes, areaName) => {
     }
     if (changes.cachedModels) {
       populateModelSelect();
+    }
+    if (changes.cachedModelMeta) {
+      cachedModelMeta = changes.cachedModelMeta.newValue || {};
+      syncReasoningSelect();
     }
 
     if (changes.theme) {
@@ -700,6 +751,8 @@ async function applyPendingProfile() {
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
+  const storedMeta = await browserAPI.storage.local.get('cachedModelMeta');
+  cachedModelMeta = storedMeta.cachedModelMeta || {};
   await populateModelSelect();
   populateProfileSelect();
 

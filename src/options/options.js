@@ -3,6 +3,11 @@
  */
 
 import { getModelsEndpoint, getProviderHeaders } from '../common/openai-client.js';
+import {
+  extractReasoningMeta,
+  getReasoningOptions,
+  populateReasoningSelect
+} from '../common/reasoning.js';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -33,6 +38,7 @@ const defaultSettings = {
   activeProfileId: 'profile-default',
   profileShortcuts: {},
   model: 'gpt-4.1-nano',
+  reasoningEffort: '',
   theme: 'system',
   fontSize: 'medium',
   displayMode: 'sidebar',
@@ -96,6 +102,8 @@ const statusEl = document.getElementById('status');
 const resetBtn = document.getElementById('reset-btn');
 const loadModelsBtn = document.getElementById('load-models-btn');
 const modelSelect = document.getElementById('model');
+const reasoningSelect = document.getElementById('reasoning');
+const reasoningGroup = document.getElementById('reasoning-group');
 const modelStatusEl = document.getElementById('model-status');
 const themeSelect = document.getElementById('theme');
 const fontSizeSelect = document.getElementById('fontSize');
@@ -112,6 +120,8 @@ let promptProfiles = [];
 let activeProfileId = '';
 let currentProfileShortcuts = {};
 let cachedModels = {};
+let cachedModelMeta = {};
+let savedReasoningEffort = '';
 
 /**
  * Detect if Firefox theme is dark
@@ -319,12 +329,44 @@ function renderProfiles() {
       modelSelectEl.appendChild(optgroup);
     }
     if (profile.model) modelSelectEl.value = profile.model;
-    modelSelectEl.addEventListener('change', (e) => {
-      profile.model = e.target.value;
-    });
     modelGroup.appendChild(modelLabel);
     modelGroup.appendChild(modelSelectEl);
     detail.appendChild(modelGroup);
+
+    const reasoningGroupEl = document.createElement('div');
+    reasoningGroupEl.className = 'form-group';
+    const reasoningLabel = document.createElement('label');
+    reasoningLabel.textContent = 'Reasoning';
+    const reasoningSelectEl = document.createElement('select');
+    reasoningSelectEl.addEventListener('change', (e) => {
+      profile.reasoningEffort = e.target.value;
+    });
+    reasoningGroupEl.appendChild(reasoningLabel);
+    reasoningGroupEl.appendChild(reasoningSelectEl);
+    detail.appendChild(reasoningGroupEl);
+
+    const syncProfileReasoning = () => {
+      if (!profile.model) {
+        populateReasoningSelect(reasoningSelectEl, null, '');
+        reasoningGroupEl.hidden = true;
+        profile.reasoningEffort = '';
+        return;
+      }
+      const shown = updateReasoningSelect(
+        reasoningSelectEl,
+        profile.model,
+        profile.reasoningEffort || ''
+      );
+      reasoningGroupEl.hidden = !shown;
+    };
+    modelSelectEl.addEventListener('change', (e) => {
+      profile.model = e.target.value;
+      if (!profile.model) {
+        profile.reasoningEffort = '';
+      }
+      syncProfileReasoning();
+    });
+    syncProfileReasoning();
 
     // Auto-submit field
     const autoGroup = document.createElement('div');
@@ -359,6 +401,7 @@ function addProfile() {
     name: '',
     prompt: '',
     model: '',
+    reasoningEffort: '',
     autoSubmit: true
   };
   promptProfiles.push(newProfile);
@@ -565,18 +608,33 @@ async function fetchModels(provider) {
     });
 
     if (!response.ok) {
-      if (fallback) return fallback;
+      if (fallback) return { models: fallback, meta: {} };
       throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    const models = (data.data || []).map(m => m.id).filter(Boolean).sort();
-    if (models.length === 0 && fallback) return fallback;
-    return models;
+    const parsed = parseModelsList(data);
+    if (parsed.models.length === 0 && fallback) {
+      return { models: fallback, meta: {} };
+    }
+    return parsed;
   } catch (error) {
-    if (fallback) return fallback;
+    if (fallback) return { models: fallback, meta: {} };
     throw error;
   }
+}
+
+function parseModelsList(data) {
+  const models = [];
+  const meta = {};
+  for (const entry of data.data || []) {
+    if (!entry?.id) continue;
+    models.push(entry.id);
+    const reasoning = extractReasoningMeta(entry);
+    if (reasoning) meta[entry.id] = reasoning;
+  }
+  models.sort();
+  return { models, meta };
 }
 
 /**
@@ -586,6 +644,37 @@ function parseModelValue(value) {
   const idx = (value || '').indexOf('::');
   if (idx === -1) return { providerId: null, modelId: value };
   return { providerId: value.substring(0, idx), modelId: value.substring(idx + 2) };
+}
+
+function findProvider(providerId) {
+  return providers.find(p => p.id === providerId);
+}
+
+/**
+ * Show reasoning values for the selected model, if the platform supports them.
+ */
+function updateReasoningSelect(selectEl, modelValue, selected = '') {
+  const { providerId, modelId } = parseModelValue(modelValue);
+  const provider = findProvider(providerId) || getActiveProvider();
+  if (!provider || !modelId) {
+    return populateReasoningSelect(selectEl, null, '');
+  }
+
+  const values = getReasoningOptions(
+    provider.endpoint,
+    modelId,
+    cachedModelMeta[provider.id]?.[modelId]
+  );
+  return populateReasoningSelect(selectEl, values, selected);
+}
+
+function syncGlobalReasoningSelect() {
+  const shown = updateReasoningSelect(
+    reasoningSelect,
+    modelSelect.value,
+    reasoningSelect.value || savedReasoningEffort
+  );
+  reasoningGroup.hidden = !shown;
 }
 
 /**
@@ -618,12 +707,15 @@ function populateModelSelect(cachedModels, selectedModel = '') {
     option.value = '';
     option.textContent = '-- No available models --';
     modelSelect.appendChild(option);
+    syncGlobalReasoningSelect();
     return;
   }
 
   if (selectedModel && modelSelect.querySelector(`option[value="${CSS.escape(selectedModel)}"]`)) {
     modelSelect.value = selectedModel;
   }
+
+  syncGlobalReasoningSelect();
 }
 
 /**
@@ -642,14 +734,19 @@ async function loadAllModels(preserveSelection = true) {
   loadModelsBtn.classList.add('loading');
   updateModelStatus('Loading model list...', 'loading');
 
-  const { cachedModels: existing } = await browserAPI.storage.local.get('cachedModels');
+  const { cachedModels: existing, cachedModelMeta: existingMeta } = await browserAPI.storage.local.get([
+    'cachedModels',
+    'cachedModelMeta'
+  ]);
   const fetchedModels = existing || {};
+  const fetchedMeta = existingMeta || {};
   const results = [];
 
   for (const provider of configuredProviders) {
     try {
-      const models = await fetchModels(provider);
+      const { models, meta } = await fetchModels(provider);
       fetchedModels[provider.id] = models;
+      fetchedMeta[provider.id] = meta || {};
       results.push(`${provider.name}: ${models.length} models`);
     } catch (error) {
       console.error(`Failed to fetch models from ${provider.name}:`, error);
@@ -658,7 +755,11 @@ async function loadAllModels(preserveSelection = true) {
   }
 
   cachedModels = fetchedModels;
-  await browserAPI.storage.local.set({ cachedModels: fetchedModels });
+  cachedModelMeta = fetchedMeta;
+  await browserAPI.storage.local.set({
+    cachedModels: fetchedModels,
+    cachedModelMeta: fetchedMeta
+  });
   populateModelSelect(fetchedModels, currentModel || savedModel || defaultSettings.model);
   renderProfiles();
   updateModelStatus(`Loaded: ${results.join(', ')}`, 'success');
@@ -732,8 +833,9 @@ async function loadSettings() {
     currentProfileShortcuts = settings.profileShortcuts || {};
 
     // Load cached models before rendering profiles (for model dropdowns in profile details)
-    const { cachedModels: storedCachedModels } = await browserAPI.storage.local.get('cachedModels');
-    cachedModels = storedCachedModels || {};
+    const storedCache = await browserAPI.storage.local.get(['cachedModels', 'cachedModelMeta']);
+    cachedModels = storedCache.cachedModels || {};
+    cachedModelMeta = storedCache.cachedModelMeta || {};
 
     renderProviders();
     renderProfiles(); // also calls renderShortcutSlots()
@@ -744,6 +846,8 @@ async function loadSettings() {
     applyTheme(settings.theme);
 
     savedModel = settings.model;
+    savedReasoningEffort = settings.reasoningEffort || '';
+    reasoningSelect.value = savedReasoningEffort;
 
     // Auto-load models from all configured providers
     const configuredProviders = providers.filter(p => p.endpoint && p.apiKey);
@@ -776,6 +880,7 @@ async function saveSettings(e) {
     activeProfileId,
     profileShortcuts,
     model: document.getElementById('model').value,
+    reasoningEffort: reasoningSelect.value,
     theme: themeSelect.value,
     fontSize: fontSizeSelect.value,
     displayMode: displayModeSelect.value === 'popup' ? 'popup' : 'sidebar'
@@ -783,6 +888,8 @@ async function saveSettings(e) {
 
   try {
     await browserAPI.storage.local.set(settings);
+    savedModel = settings.model;
+    savedReasoningEffort = settings.reasoningEffort;
     showStatus('Settings saved successfully!');
   } catch (error) {
     console.error('Failed to save settings:', error);
@@ -813,6 +920,9 @@ async function resetSettings() {
 form.addEventListener('submit', saveSettings);
 resetBtn.addEventListener('click', resetSettings);
 loadModelsBtn.addEventListener('click', () => loadAllModels());
+modelSelect.addEventListener('change', () => {
+  syncGlobalReasoningSelect();
+});
 themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
 
 addProviderBtn.addEventListener('click', () => addProvider());

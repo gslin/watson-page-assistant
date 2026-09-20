@@ -2,6 +2,8 @@
  * OpenAI API client with streaming support
  */
 
+import { applyReasoningEffort } from './reasoning.js';
+
 const ANTHROPIC_HOST = 'api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
 
@@ -66,6 +68,7 @@ export function getModelsEndpoint(endpoint) {
  * @param {string} options.model - Model name
  * @param {Array} options.messages - Chat messages
  * @param {function} options.onChunk - Callback for each streamed chunk
+ * @param {string} [options.reasoningEffort] - Reasoning effort when supported
  * @param {AbortSignal} [options.signal] - Optional abort signal
  * @returns {Promise<string>} - Complete response text
  */
@@ -75,16 +78,20 @@ export async function streamChatCompletion({
   model,
   messages,
   onChunk,
+  reasoningEffort,
   signal
 }) {
+  const body = {
+    model,
+    messages,
+    stream: true
+  };
+  applyReasoningEffort(body, endpoint, reasoningEffort);
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: getProviderHeaders({ endpoint, apiKey }, { json: true }),
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true
-    }),
+    body: JSON.stringify(body),
     signal
   });
 
@@ -144,6 +151,7 @@ export async function streamChatCompletion({
  * @param {string} options.apiKey - API key
  * @param {string} options.model - Model name
  * @param {Array} options.messages - Chat messages
+ * @param {string} [options.reasoningEffort] - Reasoning effort when supported
  * @param {AbortSignal} [options.signal] - Optional abort signal
  * @returns {Promise<string>} - Response content
  */
@@ -152,16 +160,20 @@ export async function chatCompletion({
   apiKey,
   model,
   messages,
+  reasoningEffort,
   signal
 }) {
+  const body = {
+    model,
+    messages,
+    stream: false
+  };
+  applyReasoningEffort(body, endpoint, reasoningEffort);
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: getProviderHeaders({ endpoint, apiKey }, { json: true }),
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false
-    }),
+    body: JSON.stringify(body),
     signal
   });
 

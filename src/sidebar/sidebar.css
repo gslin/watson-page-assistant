@@ -309,19 +309,26 @@ body {
 
 /* Model Selector */
 .model-selector {
+  display: flex;
+  gap: 8px;
   padding: 8px 16px;
   background-color: #fff;
   border-bottom: 1px solid #e0e0e0;
 }
 
 .model-selector select {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 6px 8px;
   font-size: 13px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
   cursor: pointer;
+}
+
+.model-selector #reasoning-select {
+  flex: 0 0 118px;
 }
 
 .message-input-wrapper {
