@@ -2,6 +2,8 @@
  * Options page script
  */
 
+import { getModelsEndpoint, getProviderHeaders } from '../common/openai-client.js';
+
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 const SHORTCUT_SLOTS = [
@@ -38,23 +40,56 @@ const defaultSettings = {
 };
 
 const PRESETS = {
-  openai: {
-    name: 'OpenAI',
-    endpoint: 'https://api.openai.com/v1/chat/completions'
+  cerebras: {
+    name: 'Cerebras',
+    endpoint: 'https://api.cerebras.ai/v1/chat/completions'
   },
-  mistral: {
-    name: 'Mistral AI',
-    endpoint: 'https://api.mistral.ai/v1/chat/completions'
+  claude: {
+    name: 'Claude',
+    endpoint: 'https://api.anthropic.com/v1/chat/completions'
+  },
+  gemini: {
+    name: 'Gemini',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+  },
+  grok: {
+    name: 'Grok',
+    endpoint: 'https://api.x.ai/v1/chat/completions'
   },
   groq: {
     name: 'Groq',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions'
   },
-  cerebras: {
-    name: 'Cerebras',
-    endpoint: 'https://api.cerebras.ai/v1/chat/completions'
+  llamacpp: {
+    name: 'llama.cpp',
+    endpoint: 'http://localhost:8080/v1/chat/completions',
+    apiKey: 'sk-no-key-required'
+  },
+  mistral: {
+    name: 'Mistral AI',
+    endpoint: 'https://api.mistral.ai/v1/chat/completions'
+  },
+  openai: {
+    name: 'OpenAI',
+    endpoint: 'https://api.openai.com/v1/chat/completions'
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions'
+  },
+  perplexity: {
+    name: 'Perplexity',
+    endpoint: 'https://api.perplexity.ai/chat/completions'
   }
 };
+
+// Perplexity has no public /models list; keep the official Sonar catalog as fallback.
+const PERPLEXITY_MODELS = [
+  'sonar',
+  'sonar-deep-research',
+  'sonar-pro',
+  'sonar-reasoning-pro'
+];
 
 const form = document.getElementById('settings-form');
 const statusEl = document.getElementById('status');
@@ -484,12 +519,12 @@ function escapeAttr(str) {
  * Add a new provider (optionally from preset)
  */
 function addProvider(preset) {
-  const config = preset ? PRESETS[preset] : { name: '', endpoint: '' };
+  const config = preset ? PRESETS[preset] : { name: '', endpoint: '', apiKey: '' };
   const newProvider = {
     id: generateId(),
     name: config.name || '',
     endpoint: config.endpoint || '',
-    apiKey: ''
+    apiKey: config.apiKey || ''
   };
   providers.push(newProvider);
   if (providers.length === 1) {
@@ -506,24 +541,42 @@ function addProvider(preset) {
   }
 }
 
+function getFallbackModels(provider) {
+  try {
+    if (new URL(provider.endpoint).hostname === 'api.perplexity.ai') {
+      return [...PERPLEXITY_MODELS];
+    }
+  } catch {
+    // ignore invalid URL
+  }
+  return null;
+}
+
 /**
  * Fetch available models from API
  */
 async function fetchModels(provider) {
-  const modelsEndpoint = provider.endpoint.replace('/chat/completions', '/models');
+  const fallback = getFallbackModels(provider);
 
-  const response = await fetch(modelsEndpoint, {
-    headers: { 'Authorization': `Bearer ${provider.apiKey}` }
-  });
+  try {
+    const modelsEndpoint = getModelsEndpoint(provider.endpoint);
+    const response = await fetch(modelsEndpoint, {
+      headers: getProviderHeaders(provider)
+    });
 
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      if (fallback) return fallback;
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const models = (data.data || []).map(m => m.id).filter(Boolean).sort();
+    if (models.length === 0 && fallback) return fallback;
+    return models;
+  } catch (error) {
+    if (fallback) return fallback;
+    throw error;
   }
-
-  const data = await response.json();
-  return data.data
-    .map(m => m.id)
-    .sort();
 }
 
 /**

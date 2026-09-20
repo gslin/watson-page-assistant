@@ -2,6 +2,8 @@
  * Sidebar script for Watson Page Assistant
  */
 
+import { getProviderHeaders } from '../common/openai-client.js';
+
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // Configure marked
@@ -456,10 +458,7 @@ async function streamChatCompletion(messages, onChunk) {
 
   const response = await fetch(provider.endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${provider.apiKey}`
-    },
+    headers: getProviderHeaders(provider, { json: true }),
     body: JSON.stringify({
       model: modelId,
       messages,

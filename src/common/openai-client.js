@@ -2,6 +2,62 @@
  * OpenAI API client with streaming support
  */
 
+const ANTHROPIC_HOST = 'api.anthropic.com';
+const ANTHROPIC_VERSION = '2023-06-01';
+
+function getHostname(endpoint) {
+  try {
+    return new URL(endpoint).hostname;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Build request headers for an OpenAI-compatible provider.
+ * Anthropic requires a version header and accepts x-api-key;
+ * browser-direct calls also need the CORS opt-in header.
+ * @param {Object} provider
+ * @param {string} provider.endpoint
+ * @param {string} provider.apiKey
+ * @param {{ json?: boolean }} [options]
+ * @returns {Record<string, string>}
+ */
+export function getProviderHeaders(provider, { json = false } = {}) {
+  const headers = {
+    Authorization: `Bearer ${provider.apiKey}`
+  };
+  if (json) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (getHostname(provider.endpoint) === ANTHROPIC_HOST) {
+    headers['anthropic-version'] = ANTHROPIC_VERSION;
+    headers['x-api-key'] = provider.apiKey;
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+  return headers;
+}
+
+/**
+ * Derive the models list URL from a chat completions endpoint.
+ * Anthropic paginates /v1/models (default 20); request the max page.
+ * @param {string} endpoint
+ * @returns {string}
+ */
+export function getModelsEndpoint(endpoint) {
+  const modelsEndpoint = endpoint.replace('/chat/completions', '/models');
+  if (getHostname(endpoint) !== ANTHROPIC_HOST) {
+    return modelsEndpoint;
+  }
+  try {
+    const url = new URL(modelsEndpoint);
+    url.searchParams.set('limit', '1000');
+    return url.toString();
+  } catch {
+    return modelsEndpoint;
+  }
+}
+
 /**
  * Send a chat completion request with streaming
  * @param {Object} options
@@ -23,10 +79,7 @@ export async function streamChatCompletion({
 }) {
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+    headers: getProviderHeaders({ endpoint, apiKey }, { json: true }),
     body: JSON.stringify({
       model,
       messages,
@@ -103,10 +156,7 @@ export async function chatCompletion({
 }) {
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+    headers: getProviderHeaders({ endpoint, apiKey }, { json: true }),
     body: JSON.stringify({
       model,
       messages,

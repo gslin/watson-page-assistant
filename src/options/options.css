@@ -346,6 +346,7 @@ button:active {
 
 .preset-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
