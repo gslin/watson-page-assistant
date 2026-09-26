@@ -11,16 +11,24 @@ const POPUP_WIDTH = 420;
 const POPUP_HEIGHT = 640;
 const PROFILE_COMMANDS = ['open-profile-1', 'open-profile-2', 'open-profile-3', 'open-profile-4'];
 
-let assistantWindowId = null;
-let assistantTabId = null;
-let assistantSourceTab = null;
+const openingAssistants = new Map();
 
-function getPopupUrl() {
-  return browserAPI.runtime.getURL(POPUP_PATH);
+function getPopupUrl(sourceTabId = null) {
+  const url = new URL(browserAPI.runtime.getURL(POPUP_PATH));
+  if (sourceTabId != null) url.searchParams.set('sourceTabId', sourceTabId);
+  return url.href;
 }
 
 function isAssistantUrl(url) {
-  return typeof url === 'string' && url.startsWith(getPopupUrl());
+  return typeof url === 'string' && url.split(/[?#]/)[0] === getPopupUrl();
+}
+
+function getSourceTabId(url) {
+  if (!isAssistantUrl(url)) return null;
+  const value = new URL(url).searchParams.get('sourceTabId');
+  if (!value || !/^\d+$/.test(value)) return null;
+  const tabId = Number(value);
+  return Number.isSafeInteger(tabId) ? tabId : null;
 }
 
 function isPageTab(tab) {
@@ -72,12 +80,11 @@ async function applyDisplayMode() {
 /**
  * Capture the page tab the user was on before the assistant takes focus
  */
-async function captureSourceTab() {
-  const fallback = await queryActivePageTab();
-  if (fallback?.tabId) {
-    assistantSourceTab = fallback;
-  }
-  return assistantSourceTab;
+async function captureSourceTab(tab) {
+  if (isPageTab(tab)) return { tabId: tab.id, url: tab.url };
+  const sourceTabId = getSourceTabId(tab?.url);
+  if (sourceTabId != null) return { tabId: sourceTabId };
+  return queryActivePageTab();
 }
 
 /**
@@ -115,36 +122,17 @@ async function queryActivePageTab() {
   return { error: 'Could not get active tab' };
 }
 
-function rememberAssistantTab(tab) {
-  if (!tab) return;
-  assistantTabId = tab.id ?? null;
-  assistantWindowId = tab.windowId ?? null;
-}
-
 /**
- * Reuse an already-open assistant window or tab if possible
+ * Reuse only the assistant belonging to this source tab.
+ * The URL also preserves the association across background restarts.
  */
-async function findExistingAssistant() {
-  if (assistantTabId != null) {
-    try {
-      const tab = await browserAPI.tabs.get(assistantTabId);
-      if (tab?.id) {
-        rememberAssistantTab(tab);
-        return tab;
-      }
-    } catch {
-      assistantTabId = null;
-      assistantWindowId = null;
-    }
-  }
-
+async function findExistingAssistant(sourceTabId) {
   try {
     const tabs = await browserAPI.tabs.query({});
-    const found = tabs.find((tab) => isAssistantUrl(tab.url) || isAssistantUrl(tab.pendingUrl));
-    if (found) {
-      rememberAssistantTab(found);
-      return found;
-    }
+    return tabs.find((tab) => {
+      const url = tab.pendingUrl || tab.url;
+      return isAssistantUrl(url) && getSourceTabId(url) === sourceTabId;
+    }) || null;
   } catch (error) {
     console.error('Failed to find assistant:', error);
   }
@@ -156,7 +144,7 @@ async function focusAssistant(tab) {
   if (tab?.id) {
     await browserAPI.tabs.update(tab.id, { active: true });
   }
-  const windowId = tab?.windowId ?? assistantWindowId;
+  const windowId = tab?.windowId;
   if (windowId != null && browserAPI.windows?.update) {
     await browserAPI.windows.update(windowId, { focused: true });
   }
@@ -180,15 +168,15 @@ function buildWindowFeatures(position) {
  * Background window.open / windows.create are chrome-privileged and always
  * create a real window.
  */
-async function openViaPageWindow(url, position) {
-  const tabId = assistantSourceTab?.tabId;
+async function openViaPageWindow(url, position, sourceTab) {
+  const tabId = sourceTab?.tabId;
   if (!tabId) return false;
 
   try {
     const response = await browserAPI.tabs.sendMessage(tabId, {
       type: 'OPEN_ASSISTANT',
       url,
-      name: 'watson-assistant',
+      name: `watson-assistant-${tabId}`,
       features: buildWindowFeatures(position)
     });
     return Boolean(response?.ok);
@@ -198,9 +186,9 @@ async function openViaPageWindow(url, position) {
   }
 }
 
-async function openAssistantTab(url) {
+async function openAssistantTab(url, sourceTab) {
   const createProps = { url, active: true };
-  const openerTabId = assistantSourceTab?.tabId;
+  const openerTabId = sourceTab?.tabId;
   if (openerTabId) {
     try {
       const opener = await browserAPI.tabs.get(openerTabId);
@@ -211,8 +199,7 @@ async function openAssistantTab(url) {
     }
   }
 
-  const tab = await browserAPI.tabs.create(createProps);
-  rememberAssistantTab(tab);
+  await browserAPI.tabs.create(createProps);
 }
 
 async function getPopupPosition() {
@@ -236,9 +223,9 @@ async function getPopupPosition() {
   }
 }
 
-async function waitAndRememberAssistant() {
+async function waitForAssistant(sourceTabId) {
   for (let i = 0; i < 20; i++) {
-    const found = await findExistingAssistant();
+    const found = await findExistingAssistant(sourceTabId);
     if (found) return found;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -259,45 +246,61 @@ async function createAssistantPopupWindow(url, position) {
     createOptions.incognito = position.incognito;
   }
 
-  let win;
   try {
-    win = await browserAPI.windows.create(createOptions);
+    await browserAPI.windows.create(createOptions);
   } catch (error) {
     if (createOptions.incognito) {
       delete createOptions.incognito;
-      win = await browserAPI.windows.create(createOptions);
+      await browserAPI.windows.create(createOptions);
     } else {
       throw error;
     }
   }
-
-  assistantWindowId = win?.id ?? null;
-  const tab = win?.tabs?.[0];
-  if (tab?.id) assistantTabId = tab.id;
 }
 
 /**
- * Open (or focus) the assistant as a popup window or tab
+ * Serialize requests for the same source so rapid clicks do not create duplicates.
  */
-async function openAssistantWindow() {
-  const existing = await findExistingAssistant();
+async function openAssistantWindow(tab, profileId) {
+  const sourceTab = await captureSourceTab(tab);
+  const sourceTabId = sourceTab?.tabId ?? null;
+  const previous = openingAssistants.get(sourceTabId) || Promise.resolve();
+  const opening = previous.catch(() => {}).then(() => openAssistantForSource(sourceTab, profileId));
+  openingAssistants.set(sourceTabId, opening);
+  try {
+    await opening;
+  } finally {
+    if (openingAssistants.get(sourceTabId) === opening) {
+      openingAssistants.delete(sourceTabId);
+    }
+  }
+}
+
+async function openAssistantForSource(sourceTab, profileId) {
+  const sourceTabId = sourceTab?.tabId ?? null;
+  if (profileId) {
+    await browserAPI.storage.local.set({
+      [`pendingProfileId:popup:${sourceTabId ?? 'unbound'}`]: profileId
+    });
+  }
+
+  const existing = await findExistingAssistant(sourceTabId);
   if (existing) {
     await focusAssistant(existing);
     return;
   }
 
-  await captureSourceTab();
-  const url = getPopupUrl();
+  const url = getPopupUrl(sourceTabId);
   const position = await getPopupPosition();
 
   if (isFirefox) {
     // Content-context window.open respects restriction=0 → tab.
     // If the page blocks popups, open a tab instead of forcing a window.
-    if (await openViaPageWindow(url, position)) {
-      await waitAndRememberAssistant();
+    if (await openViaPageWindow(url, position, sourceTab)) {
+      await waitForAssistant(sourceTabId);
       return;
     }
-    await openAssistantTab(url);
+    await openAssistantTab(url, sourceTab);
     return;
   }
 
@@ -307,17 +310,21 @@ async function openAssistantWindow() {
 /**
  * Open the assistant in the configured display mode
  */
-async function openAssistant() {
+async function openAssistant(tab, profileId) {
   await applyDisplayMode();
   const mode = await getDisplayMode();
 
   if (mode === 'popup') {
     try {
-      await openAssistantWindow();
+      await openAssistantWindow(tab, profileId);
       return;
     } catch (error) {
       console.error('Failed to open popup window, falling back to sidebar:', error);
     }
+  }
+
+  if (profileId) {
+    await browserAPI.storage.local.set({ pendingProfileId: profileId });
   }
 
   try {
@@ -364,52 +371,32 @@ if (browserAPI.storage?.onChanged) {
   });
 }
 
-if (browserAPI.windows?.onRemoved) {
-  browserAPI.windows.onRemoved.addListener((windowId) => {
-    if (windowId === assistantWindowId) {
-      assistantWindowId = null;
-      assistantTabId = null;
-    }
-  });
-}
-
-if (browserAPI.tabs?.onRemoved) {
-  browserAPI.tabs.onRemoved.addListener((tabId) => {
-    if (tabId === assistantTabId) {
-      assistantTabId = null;
-      assistantWindowId = null;
-    }
-  });
-}
-
 // Handle keyboard shortcut commands (works for both Chrome and Firefox)
 if (browserAPI.commands?.onCommand) {
-  browserAPI.commands.onCommand.addListener(async (command) => {
+  browserAPI.commands.onCommand.addListener(async (command, tab) => {
     const isProfileCommand = PROFILE_COMMANDS.includes(command);
     const isOpenCommand = command === 'open-sidebar' || isProfileCommand;
 
     if (!isOpenCommand) return;
 
     // For profile commands: look up which profile is assigned to this slot
+    let profileId;
     if (isProfileCommand) {
       const { profileShortcuts } = await browserAPI.storage.local.get('profileShortcuts');
-      const profileId = (profileShortcuts || {})[command];
-      if (profileId) {
-        await browserAPI.storage.local.set({ pendingProfileId: profileId });
-      }
+      profileId = (profileShortcuts || {})[command];
     }
 
-    await openAssistant();
+    await openAssistant(tab, profileId);
   });
 }
 
 // Toolbar icon: popup mode opens the assistant window; sidebar mode opens settings
 if (browserAPI.action?.onClicked) {
-  browserAPI.action.onClicked.addListener(async () => {
+  browserAPI.action.onClicked.addListener(async (tab) => {
     const mode = await getDisplayMode();
     if (mode === 'popup') {
       try {
-        await openAssistantWindow();
+        await openAssistantWindow(tab);
       } catch (error) {
         console.error('Failed to open popup window:', error);
       }
@@ -422,19 +409,19 @@ if (browserAPI.action?.onClicked) {
 // Handle messages between sidebar/popup and content scripts
 browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_ACTIVE_TAB') {
-    const fromPopup = typeof sender.url === 'string' && sender.url.includes('/popup/popup.html');
+    const sourceTabId = getSourceTabId(sender.url);
 
     (async () => {
-      if (fromPopup && assistantSourceTab?.tabId) {
+      if (sourceTabId != null) {
         try {
-          const tab = await browserAPI.tabs.get(assistantSourceTab.tabId);
+          const tab = await browserAPI.tabs.get(sourceTabId);
           if (tab?.id) {
             sendResponse({ tabId: tab.id, url: tab.url });
             return;
           }
-        } catch {
-          assistantSourceTab = null;
-        }
+        } catch { /* Source tab was closed. */ }
+        sendResponse({ error: 'Source tab is no longer available' });
+        return;
       }
 
       sendResponse(await queryActivePageTab());

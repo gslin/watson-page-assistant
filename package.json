@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "test": "node --test scripts/test-assistant.js",
     "build": "node scripts/build.js",
     "build:readability": "node scripts/bundle-readability.js",
     "build:icons": "node scripts/generate-icons.js",

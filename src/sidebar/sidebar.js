@@ -10,6 +10,12 @@ import {
 } from '../common/reasoning.js';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+const isPopup = window.location.pathname === '/popup/popup.html';
+const sourceTabId = new URLSearchParams(window.location.search).get('sourceTabId');
+const pendingProfileKey = isPopup
+  ? `pendingProfileId:popup:${sourceTabId || 'unbound'}`
+  : 'pendingProfileId';
+let profilesReady = false;
 
 // Configure marked
 if (typeof MarkedModule !== 'undefined') {
@@ -427,7 +433,7 @@ async function extractContent() {
   try {
     const tabInfo = await getActiveTab();
     if (!tabInfo?.tabId) {
-      throw new Error('Could not get active tab');
+      throw new Error(tabInfo?.error || 'Could not get active tab');
     }
 
     currentTabId = tabInfo.tabId;
@@ -699,14 +705,8 @@ browserAPI.storage.onChanged.addListener((changes, areaName) => {
     if (changes.activeProfileId) {
       settings.activeProfileId = changes.activeProfileId.newValue;
     }
-    if (changes.pendingProfileId?.newValue) {
-      // Shortcut triggered while sidebar was already open (e.g. Firefox)
-      const profileId = changes.pendingProfileId.newValue;
-      browserAPI.storage.local.remove('pendingProfileId');
-      if (profileSelect.querySelector(`option[value="${CSS.escape(profileId)}"]`)) {
-        profileSelect.value = profileId;
-        updatePromptFromProfile();
-      }
+    if (profilesReady && changes[pendingProfileKey]?.newValue) {
+      applyPendingProfile();
     }
     if (changes.cachedModels) {
       populateModelSelect();
@@ -739,9 +739,10 @@ if (browserAPI.theme?.onUpdated) {
  * Apply a pending profile switch triggered by keyboard shortcut
  */
 async function applyPendingProfile() {
-  const { pendingProfileId } = await browserAPI.storage.local.get('pendingProfileId');
+  const stored = await browserAPI.storage.local.get(pendingProfileKey);
+  const pendingProfileId = stored[pendingProfileKey];
   if (!pendingProfileId) return;
-  await browserAPI.storage.local.remove('pendingProfileId');
+  await browserAPI.storage.local.remove(pendingProfileKey);
   if (profileSelect.querySelector(`option[value="${CSS.escape(pendingProfileId)}"]`)) {
     profileSelect.value = pendingProfileId;
     updatePromptFromProfile();
@@ -755,6 +756,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cachedModelMeta = storedMeta.cachedModelMeta || {};
   await populateModelSelect();
   populateProfileSelect();
+  profilesReady = true;
 
   // Switch to profile requested by keyboard shortcut (if any)
   await applyPendingProfile();

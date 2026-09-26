@@ -8,6 +8,7 @@ A cross-browser extension that extracts web page content using Readability.js an
 - OpenAI API streaming responses
 - Supports Firefox and Chrome
 - Customizable API endpoint, model, and system prompt
+- Independent popup assistants for different source tabs; reopening from the same tab preserves its conversation
 
 ## Keyboard Shortcuts
 
