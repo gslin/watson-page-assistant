@@ -306,7 +306,10 @@ async function populateModelSelect() {
     syncReasoningSelect();
   } catch (error) {
     console.error('Failed to load cached models:', error);
-    modelSelect.innerHTML = `<option value="${settings.model}">${parseModelValue(settings.model).modelId}</option>`;
+    const option = document.createElement('option');
+    option.value = settings.model;
+    option.textContent = parseModelValue(settings.model).modelId;
+    modelSelect.replaceChildren(option);
     currentModel = settings.model;
     syncReasoningSelect();
   }
