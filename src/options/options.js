@@ -519,24 +519,31 @@ function renderProviders() {
     detail.innerHTML = `
       <div class="form-group">
         <label>Name</label>
-        <input type="text" class="provider-name-input" value="${escapeAttr(provider.name)}" placeholder="Provider name">
+        <input type="text" class="provider-name-input" placeholder="Provider name">
       </div>
       <div class="form-group">
         <label>API Endpoint</label>
-        <input type="url" class="provider-endpoint-input" value="${escapeAttr(provider.endpoint)}" placeholder="https://api.openai.com/v1/chat/completions">
+        <input type="url" class="provider-endpoint-input" placeholder="https://api.openai.com/v1/chat/completions">
       </div>
       <div class="form-group">
         <label>API Key</label>
-        <input type="password" class="provider-apikey-input" value="${escapeAttr(provider.apiKey)}" placeholder="Your API key">
+        <input type="password" class="provider-apikey-input" placeholder="Your API key">
       </div>
     `;
 
+    const nameInput = detail.querySelector('.provider-name-input');
+    const endpointInput = detail.querySelector('.provider-endpoint-input');
+    const apiKeyInput = detail.querySelector('.provider-apikey-input');
+    nameInput.value = provider.name || '';
+    endpointInput.value = provider.endpoint || '';
+    apiKeyInput.value = provider.apiKey || '';
+
     // Sync edits back to providers array
-    detail.querySelector('.provider-name-input').addEventListener('input', (e) => {
+    nameInput.addEventListener('input', (e) => {
       provider.name = e.target.value;
       nameSpan.textContent = provider.name || '(unnamed)';
     });
-    detail.querySelector('.provider-endpoint-input').addEventListener('input', (e) => {
+    endpointInput.addEventListener('input', (e) => {
       provider.endpoint = e.target.value;
       try {
         endpointSpan.textContent = new URL(e.target.value).hostname;
@@ -544,7 +551,7 @@ function renderProviders() {
         endpointSpan.textContent = e.target.value;
       }
     });
-    detail.querySelector('.provider-apikey-input').addEventListener('input', (e) => {
+    apiKeyInput.addEventListener('input', (e) => {
       provider.apiKey = e.target.value;
     });
 
@@ -552,10 +559,6 @@ function renderProviders() {
     item.appendChild(detail);
     providerListEl.appendChild(item);
   });
-}
-
-function escapeAttr(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
