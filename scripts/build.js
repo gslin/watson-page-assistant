@@ -16,6 +16,13 @@ const distDir = path.join(projectRoot, 'dist');
 const manifestsDir = path.join(projectRoot, 'manifests');
 const iconsDir = path.join(projectRoot, 'icons');
 
+// Official third-party library builds, shipped unmodified so AMO reviewers can verify checksums
+const vendorFiles = [
+  'node_modules/@mozilla/readability/Readability.js',
+  'node_modules/dompurify/dist/purify.min.js',
+  'node_modules/marked/lib/marked.umd.js'
+];
+
 /**
  * Remove directory recursively
  */
@@ -68,6 +75,11 @@ function buildForBrowser(browser) {
     copy(iconsDir, path.join(browserDist, 'icons'));
   }
 
+  // Copy third-party libraries
+  for (const file of vendorFiles) {
+    copy(path.join(projectRoot, file), path.join(browserDist, 'vendor', path.basename(file)));
+  }
+
   // Copy manifest
   const manifestSrc = path.join(manifestsDir, browser, 'manifest.json');
   const manifestDest = path.join(browserDist, 'manifest.json');
@@ -84,12 +96,13 @@ function buildForBrowser(browser) {
 // Main
 console.log('Building Watson Page Assistant...\n');
 
-// Check if readability.min.js exists
-const readabilityPath = path.join(srcDir, 'common', 'readability.min.js');
-if (!fs.existsSync(readabilityPath)) {
-  console.error('Error: readability.min.js not found.');
-  console.error('Please run: npm run build:readability');
-  process.exit(1);
+// Check if third-party libraries are installed
+for (const file of vendorFiles) {
+  if (!fs.existsSync(path.join(projectRoot, file))) {
+    console.error(`Error: ${file} not found.`);
+    console.error('Please run: npm install');
+    process.exit(1);
+  }
 }
 
 buildForBrowser('firefox');

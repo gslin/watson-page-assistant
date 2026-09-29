@@ -18,8 +18,8 @@ const pendingProfileKey = isPopup
 let profilesReady = false;
 
 // Configure marked
-if (typeof MarkedModule !== 'undefined') {
-  MarkedModule.marked.setOptions({
+if (typeof marked !== 'undefined') {
+  marked.setOptions({
     breaks: true,
     gfm: true
   });
@@ -29,9 +29,9 @@ if (typeof MarkedModule !== 'undefined') {
  * Render markdown to HTML with sanitization
  */
 function renderMarkdown(content) {
-  if (typeof MarkedModule !== 'undefined' && typeof DOMPurifyModule !== 'undefined') {
-    const rawHtml = MarkedModule.marked.parse(content);
-    return DOMPurifyModule.DOMPurify.sanitize(rawHtml, { RETURN_DOM_FRAGMENT: true });
+  if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+    const rawHtml = marked.parse(content);
+    return DOMPurify.sanitize(rawHtml, { RETURN_DOM_FRAGMENT: true });
   }
   return document.createTextNode(content);
 }

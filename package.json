@@ -7,11 +7,8 @@
   "scripts": {
     "test": "node --test scripts/test-assistant.js",
     "build": "node scripts/build.js",
-    "build:readability": "node scripts/bundle-readability.js",
     "build:icons": "node scripts/generate-icons.js",
-    "build:marked": "node scripts/bundle-marked.js",
-    "build:dompurify": "node scripts/bundle-dompurify.js",
-    "build:all": "npm run build:icons && npm run build:readability && npm run build:marked && npm run build:dompurify && npm run build",
+    "build:all": "npm run build:icons && npm run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

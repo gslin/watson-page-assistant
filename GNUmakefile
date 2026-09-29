@@ -43,4 +43,3 @@ deploy: deploy-firefox deploy-chrome
 
 clean:
 	rm -rf dist/
-	rm -f src/common/readability.min.js

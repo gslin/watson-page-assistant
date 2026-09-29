@@ -5,7 +5,6 @@ export default [
     // 排除 bundled 檔案和 node_modules
     ignores: [
       "node_modules/**",
-      "src/common/*.min.js",
       "dist/**"
     ]
   },
@@ -20,8 +19,8 @@ export default [
         browser: "readonly",
         chrome: "readonly",
         // 第三方函式庫
-        MarkedModule: "readonly",
-        DOMPurifyModule: "readonly",
+        marked: "readonly",
+        DOMPurify: "readonly",
         Readability: "readonly"
       }
     },
