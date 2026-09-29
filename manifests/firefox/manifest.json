@@ -75,7 +75,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "watson-page-assistant@example.com",
+      "id": "watson-page-assistant@gslin.com",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["websiteContent", "browsingActivity"]
