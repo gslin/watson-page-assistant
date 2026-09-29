@@ -31,9 +31,9 @@ if (typeof MarkedModule !== 'undefined') {
 function renderMarkdown(content) {
   if (typeof MarkedModule !== 'undefined' && typeof DOMPurifyModule !== 'undefined') {
     const rawHtml = MarkedModule.marked.parse(content);
-    return DOMPurifyModule.DOMPurify.sanitize(rawHtml);
+    return DOMPurifyModule.DOMPurify.sanitize(rawHtml, { RETURN_DOM_FRAGMENT: true });
   }
-  return content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return document.createTextNode(content);
 }
 
 // Default settings
@@ -397,7 +397,7 @@ function addMessage(role, content) {
   messageEl.className = `message ${role}`;
 
   if (role === 'assistant') {
-    messageEl.innerHTML = renderMarkdown(content);
+    messageEl.replaceChildren(renderMarkdown(content));
   } else {
     messageEl.textContent = content;
   }
@@ -614,7 +614,7 @@ async function sendMessage() {
       }
 
       accumulatedContent += chunk;
-      assistantMessage.innerHTML = renderMarkdown(accumulatedContent);
+      assistantMessage.replaceChildren(renderMarkdown(accumulatedContent));
       chatContainer.scrollTop = chatContainer.scrollHeight;
     });
 
