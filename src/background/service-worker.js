@@ -56,11 +56,21 @@ async function getDisplayMode() {
 }
 
 /**
+ * Firefox drops user input status at the first await, so shortcuts need the
+ * display mode synchronously. Its background page has localStorage, which
+ * survives event page suspension.
+ */
+function getCachedDisplayMode() {
+  return globalThis.localStorage?.getItem('displayMode') === 'popup' ? 'popup' : 'sidebar';
+}
+
+/**
  * Toolbar title follows display mode.
  * Always clear action.default_popup so onClicked fires (standalone window, not dropdown).
  */
 async function applyDisplayMode() {
   const mode = await getDisplayMode();
+  globalThis.localStorage?.setItem('displayMode', mode);
   try {
     if (browserAPI.action?.setPopup) {
       await browserAPI.action.setPopup({ popup: '' });
@@ -379,11 +389,26 @@ if (browserAPI.commands?.onCommand) {
 
     if (!isOpenCommand) return;
 
+    // Firefox only allows sidebarAction.toggle() before the first await
+    const firefoxSidebar = isFirefox && getCachedDisplayMode() === 'sidebar';
+    if (firefoxSidebar) {
+      browser.sidebarAction.toggle().catch((error) => {
+        console.error('Failed to open sidebar:', error);
+      });
+    }
+
     // For profile commands: look up which profile is assigned to this slot
     let profileId;
     if (isProfileCommand) {
       const { profileShortcuts } = await browserAPI.storage.local.get('profileShortcuts');
       profileId = (profileShortcuts || {})[command];
+    }
+
+    if (firefoxSidebar) {
+      if (profileId) {
+        await browserAPI.storage.local.set({ pendingProfileId: profileId });
+      }
+      return;
     }
 
     await openAssistant(tab, profileId);

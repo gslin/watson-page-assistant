@@ -23,6 +23,21 @@ function createBrowser({ firefox = true, pageOpen = true, displayMode = 'popup' 
   ]);
   const stored = { displayMode, profileShortcuts: { 'open-profile-1': 'profile-a', 'open-profile-2': 'profile-b' } };
   const calls = { pageOpen: [], tabs: [], windows: [], focused: [], sidebar: [], settings: 0, errors: [] };
+  // Firefox background pages keep localStorage across event page restarts; assume a previous sync.
+  const localData = new Map([['displayMode', displayMode]]);
+  const localStorage = { getItem: key => localData.get(key) ?? null, setItem: (key, value) => localData.set(key, String(value)) };
+  // Firefox only treats the synchronous part of a shortcut handler as user input.
+  let handlingUserInput = false;
+  const commandEvent = event();
+  const emitCommand = commandEvent.emit;
+  commandEvent.emit = (...args) => {
+    handlingUserInput = true;
+    try {
+      return emitCommand(...args);
+    } finally {
+      handlingUserInput = false;
+    }
+  };
   let nextTabId = 100;
   const addTab = props => {
     const tab = { id: nextTabId++, windowId: 10, ...structuredClone(props) };
@@ -84,8 +99,13 @@ function createBrowser({ firefox = true, pageOpen = true, displayMode = 'popup' 
       }
     },
     action: { onClicked: event(), setPopup: async () => {}, setTitle: async () => {} },
-    commands: { onCommand: event() },
-    sidebarAction: { toggle: async () => calls.sidebar.push('toggle') },
+    commands: { onCommand: commandEvent },
+    sidebarAction: {
+      toggle: async () => {
+        if (!handlingUserInput) throw new Error('sidebarAction.toggle may only be called from a user input handler');
+        calls.sidebar.push('toggle');
+      }
+    },
     sidePanel: { setPanelBehavior: () => {}, open: async props => calls.sidebar.push(props.tabId) }
   };
   function startBackground() {
@@ -94,6 +114,7 @@ function createBrowser({ firefox = true, pageOpen = true, displayMode = 'popup' 
     api.action.onClicked.listeners.length = 0;
     vm.runInNewContext(backgroundSource, {
       [firefox ? 'browser' : 'chrome']: api,
+      ...(firefox && { localStorage }),
       URL,
       setTimeout,
       console: { log: () => {}, error: (...args) => calls.errors.push(args) }
@@ -193,8 +214,26 @@ for (const firefox of [true, false]) {
     assert.deepEqual(app.calls.sidebar, [firefox ? 'toggle' : 1]);
     assert.equal(app.calls.pageOpen.length + app.calls.windows.length, 0);
     assert.equal((await app.message({ type: 'GET_ACTIVE_TAB' }, app.baseUrl + 'sidebar/sidebar.html')).tabId, 1);
+    assert.deepEqual(app.calls.errors, []);
   });
 }
+
+test('Firefox shortcuts follow display mode changes across background restarts', async () => {
+  const app = createBrowser({ displayMode: 'sidebar' });
+  await app.api.storage.local.set({ displayMode: 'popup' });
+  await flush();
+  app.startBackground();
+  await app.api.commands.onCommand.emit('open-sidebar', app.tabs.get(1));
+  assert.equal(app.calls.pageOpen.length, 1);
+  assert.deepEqual(app.calls.sidebar, []);
+  await app.api.storage.local.set({ displayMode: 'sidebar' });
+  await flush();
+  app.startBackground();
+  await app.api.commands.onCommand.emit('open-sidebar', app.tabs.get(1));
+  assert.deepEqual(app.calls.sidebar, ['toggle']);
+  assert.equal(app.calls.pageOpen.length, 1);
+  assert.deepEqual(app.calls.errors, []);
+});
 
 // Minimal DOM for exercising the actual shared UI module and its storage listeners.
 function element() {
