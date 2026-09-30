@@ -5,6 +5,20 @@
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 /**
+ * Unhide text fallbacks that scripts replaced with an aria-hidden widget,
+ * since Readability drops both the hidden fallback and the aria-hidden widget.
+ * @param {Document} doc Document clone to modify
+ */
+function unhideReplacedFallbacks(doc) {
+  doc.querySelectorAll('[hidden]').forEach((el) => {
+    const siblings = el.parentElement?.children || [];
+    if ([...siblings].some((s) => s !== el && s.getAttribute('aria-hidden') === 'true')) {
+      el.removeAttribute('hidden');
+    }
+  });
+}
+
+/**
  * Extract readable content from the current page
  * @returns {Object|null} Extracted content or null if extraction fails
  */
@@ -14,6 +28,8 @@ function extractContent() {
   if (typeof Readability === 'undefined') {
     throw new Error('Readability library is not loaded');
   }
+
+  unhideReplacedFallbacks(documentClone);
 
   const reader = new Readability(documentClone);
   const article = reader.parse();
